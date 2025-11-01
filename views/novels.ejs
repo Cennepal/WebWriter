@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="<%= theme %>">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Novels - WebWriter</title>
+  <link rel="stylesheet" href="/css/style.css">
+  
+  <% 
+    const bgSettings = typeof backgroundSettings !== 'undefined' ? backgroundSettings : { enabled: false, url: '', opacity: 0.3, editorEnabled: false };
+    const shouldShowBg = bgSettings.enabled && bgSettings.url;
+  %>
+  
+  <% if (shouldShowBg) { %>
+  <style>
+    body {
+      background-image: url('<%= bgSettings.url %>') !important;
+      background-size: cover !important;
+      background-position: center !important;
+      background-repeat: no-repeat !important;
+      background-attachment: fixed !important;
+    }
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: var(--bg-primary);
+      opacity: <%= 1 - parseFloat(bgSettings.opacity) %>;
+      pointer-events: none;
+      z-index: -1;
+    }
+  </style>
+  <% } %>
+</head>
+<body>
+  <% if (user) { %>
+  <nav class="navbar">
+    <div class="nav-content">
+      <a href="/novels" class="nav-brand">WebWriter</a>
+      <ul class="nav-links">
+        <li><a href="/novels">Novels</a></li>
+        <li><a href="/analytics">Analytics</a></li>
+        <li><a href="/backups">Backups</a></li>
+        <li><a href="/settings">Settings</a></li>
+        <li><button id="themeToggle" class="theme-toggle">🌓</button></li>
+        <li><a href="/auth/logout">Logout</a></li>
+      </ul>
+    </div>
+  </nav>
+  <% } %>
+  
+  <div class="container">
+    <div class="novels-section">
+      <div class="novels-section-header">
+        <div class="novels-section-title">Local Novels</div>
+        <button type="button" class="btn btn-primary" id="openCreateNovelBtn">+ New Novel</button>
+      </div>
+
+      <div class="novels-grid" id="novelsGrid">
+        <% novels.forEach(novel => { %>
+          <a href="/novels/<%= novel.id %>" class="novel-card card">
+            <img src="<%= novel.cover %>" alt="<%= novel.title %>" class="novel-cover">
+            <h3 class="novel-title"><%= novel.title %></h3>
+            <div class="novel-stats">
+              <span>📝 <%= novel.wordCount || 0 %> words</span>
+              <span>📚 <%= novel.bookCount || 0 %> books</span>
+            </div>
+            <p class="novel-synopsis"><%= novel.synopsis %></p>
+          </a>
+        <% }) %>
+      </div>
+
+      <div id="emptyState" style="display: <%= novels.length === 0 ? 'block' : 'none' %>;" class="text-center mt-4">
+        <p style="color: var(--text-secondary); font-size: 1.2rem;">No local novels yet. Create your first novel to get started!</p>
+      </div>
+    </div>
+
+    <div class="novels-section">
+      <div class="novels-section-header">
+        <div class="novels-section-title">Lite Writer (Remote)</div>
+        <div>
+          <span class="remote-badge">Remote</span>
+        </div>
+      </div>
+
+      <div class="novels-grid" id="liteNovelsGrid">
+        <% (liteNovels || []).forEach(novel => { %>
+          <a href="/novels/<%= novel.id %>?remote=1" class="novel-card card">
+            <img src="<%= novel.cover %>" alt="<%= novel.title %>" class="novel-cover">
+            <h3 class="novel-title"><%= novel.title %></h3>
+            <div class="novel-stats">
+              <span>📝 <%= novel.wordCount || 0 %> words</span>
+              <span>📚 <%= novel.bookCount || 0 %> books</span>
+            </div>
+            <p class="novel-synopsis"><%= novel.synopsis %></p>
+          </a>
+        <% }) %>
+      </div>
+
+      <div id="emptyRemoteState" style="display: <%= (liteNovels && liteNovels.length) ? 'none' : 'block' %>;" class="text-center mt-4">
+        <p style="color: var(--text-secondary); font-size: 1.2rem;">No remote novels available. Configure Lite Writer in Settings.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create Novel Modal -->
+  <div id="createNovelModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title">Create New Novel</h2>
+        <button type="button" class="modal-close" id="closeCreateNovelBtn">&times;</button>
+      </div>
+      
+      <form id="createNovelForm" enctype="multipart/form-data">
+        <div class="form-group">
+          <label for="title" class="form-label">Title</label>
+          <input type="text" id="title" name="title" class="form-input" required>
+        </div>
+        
+        <div class="form-group">
+          <label for="synopsis" class="form-label">Synopsis</label>
+          <textarea id="synopsis" name="synopsis" class="form-textarea"></textarea>
+        </div>
+        
+        <div class="form-group">
+          <label for="cover" class="form-label">Cover Image</label>
+          <input type="file" id="coverInput" name="cover" class="form-input" accept="image/*">
+          <img id="coverPreview" style="max-width: 200px; margin-top: 1rem; display: none;">
+        </div>
+        
+        <div class="flex gap-2">
+          <button type="submit" class="btn btn-primary">Create Novel</button>
+          <button type="button" class="btn btn-secondary" id="cancelCreateNovelBtn">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  
+  <script src="/js/main.js"></script>
+  <script src="/js/novels.js"></script>
+</body>
+</html>

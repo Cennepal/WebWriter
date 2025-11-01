@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="<%= theme %>">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= chapter %> - <%= novel.title %> - WebWriter</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@300;400&family=Source+Serif+4:wght@300;400&display=swap" rel="stylesheet">
+  
+  <% 
+    const bgSettings = typeof backgroundSettings !== 'undefined' ? backgroundSettings : { enabled: false, url: '', opacity: 0.3, editorEnabled: false };
+    const isEnabled = bgSettings.enabled === true || bgSettings.enabled === 1;
+    const hasUrl = bgSettings.url && bgSettings.url.length > 0;
+    const editorEnabled = bgSettings.editorEnabled === true || bgSettings.editorEnabled === 1;
+    const shouldShowBg = isEnabled && hasUrl && editorEnabled;
+  %>
+  
+  <style>
+    <% if (shouldShowBg) { %>
+    /* Custom background enabled */
+    body {
+      background-image: url('<%= bgSettings.url %>') !important;
+      background-size: cover !important;
+      background-position: center !important;
+      background-repeat: no-repeat !important;
+      background-attachment: fixed !important;
+      background-color: transparent !important;
+    }
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: var(--bg-primary);
+      opacity: <%= 1 - parseFloat(bgSettings.opacity) %>;
+      pointer-events: none;
+      z-index: -1;
+    }
+    .editor-container {
+      background-color: transparent !important;
+    }
+    <% } else { %>
+    /* No custom background - use theme background */
+    body {
+      background-color: var(--bg-primary) !important;
+      background-image: none !important;
+    }
+    .editor-container {
+      background-color: var(--bg-primary) !important;
+    }
+    <% } %>
+  </style>
+</head>
+<body>
+  <div class="editor-container">
+    <div class="editor-header">
+      <div class="editor-title">
+        <a href="/novels/<%= novel.id %><%= isRemote ? '?remote=1' : '' %>" style="color: var(--text-secondary); text-decoration: none;">← <%= novel.title %></a>
+        <span style="margin: 0 0.5rem; color: var(--border);">/</span>
+        <span><%= book %></span>
+        <span style="margin: 0 0.5rem; color: var(--border);">/</span>
+        <span><%= chapter %></span>
+        <% if (isRemote) { %>
+          <span class="remote-badge" style="margin-left: 1rem; font-size: 0.75rem;">Remote</span>
+        <% } %>
+      </div>
+      <div class="editor-status">
+        <div class="save-indicator" title="Saved"></div>
+        <span id="saveStatus">Saved</span>
+      </div>
+    </div>
+    
+    <div class="editor-toolbar" id="editorToolbar">
+      <button type="button" class="toolbar-btn" id="boldBtn" title="Bold (Ctrl+B)">B</button>
+      <button type="button" class="toolbar-btn" id="italicBtn" title="Italic (Ctrl+I)"><i>I</i></button>
+      <button type="button" class="toolbar-btn" id="headingBtn" title="Heading">H</button>
+      <button type="button" class="toolbar-btn" id="linkBtn" title="Link">🔗</button>
+      <button type="button" class="toolbar-btn" id="quoteBtn" title="Quote">"</button>
+      <button type="button" class="toolbar-btn" id="listBtn" title="List">•</button>
+      <span style="margin: 0 0.5rem; color: var(--border);">|</span>
+      <button type="button" class="toolbar-btn" id="zoomOutBtn" title="Zoom Out (Ctrl+-)">A-</button>
+      <button type="button" class="toolbar-btn" id="zoomResetBtn" title="Reset Zoom (Ctrl+0)">A</button>
+      <button type="button" class="toolbar-btn" id="zoomInBtn" title="Zoom In (Ctrl++)">A+</button>
+      <span style="margin: 0 0.5rem; color: var(--border);">|</span>
+      <button type="button" class="toolbar-btn" id="toggleToolbarBtn" title="Hide Toolbar (Ctrl+H)">Hide (Ctrl+H)</button>
+    </div>
+    
+    <textarea id="editorTextarea" class="editor-textarea" placeholder="Start writing your story..." spellcheck="true"><%= content %></textarea>
+  </div>
+  
+  <script>
+    window.isRemote = <%= isRemote ? 'true' : 'false' %>;
+  </script>
+  <script src="/js/main.js"></script>
+  <script src="/js/editor.js"></script>
+</body>
+</html>

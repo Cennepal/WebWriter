@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="<%= theme %>">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Backups - WebWriter</title>
+  <link rel="stylesheet" href="/css/style.css">
+  
+  <% 
+    const bgSettings = typeof backgroundSettings !== 'undefined' ? backgroundSettings : { enabled: false, url: '', opacity: 0.3, editorEnabled: false };
+    const shouldShowBg = bgSettings.enabled && bgSettings.url;
+  %>
+  
+  <% if (shouldShowBg) { %>
+  <style>
+    body {
+      background-image: url('<%= bgSettings.url %>') !important;
+      background-size: cover !important;
+      background-position: center !important;
+      background-repeat: no-repeat !important;
+      background-attachment: fixed !important;
+    }
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: var(--bg-primary);
+      opacity: <%= 1 - parseFloat(bgSettings.opacity) %>;
+      pointer-events: none;
+      z-index: -1;
+    }
+  </style>
+  <% } %>
+</head>
+<body>
+  <% if (user) { %>
+  <nav class="navbar">
+    <div class="nav-content">
+      <a href="/novels" class="nav-brand">WebWriter</a>
+      <ul class="nav-links">
+        <li><a href="/novels">Novels</a></li>
+        <li><a href="/analytics">Analytics</a></li>
+        <li><a href="/backups">Backups</a></li>
+        <li><a href="/settings">Settings</a></li>
+        <li><button id="themeToggle" class="theme-toggle">🌓</button></li>
+        <li><a href="/auth/logout">Logout</a></li>
+      </ul>
+    </div>
+  </nav>
+  <% } %>
+  
+  <div class="container">
+    <div class="backups-header">
+      <h1>Backups</h1>
+      <button type="button" class="btn btn-primary" id="createBackupBtn">Create Backup</button>
+    </div>
+    
+    <div class="card mb-4">
+      <h3 class="mb-3">Automatic Backup Settings</h3>
+      
+      <div class="form-group">
+        <label for="backupSchedule" class="form-label">Local Backup Schedule</label>
+        <select id="backupSchedule" class="form-select">
+          <option value="manual" <%= settings.schedule === 'manual' ? 'selected' : '' %>>Manual Only</option>
+          <option value="hourly" <%= settings.schedule === 'hourly' ? 'selected' : '' %>>Every Hour</option>
+          <option value="daily" <%= settings.schedule === 'daily' ? 'selected' : '' %>>Daily</option>
+          <option value="weekly" <%= settings.schedule === 'weekly' ? 'selected' : '' %>>Weekly</option>
+        </select>
+        <small style="color: var(--text-secondary); display: block; margin-top: 0.5rem;">
+          Automatically create backups locally
+        </small>
+      </div>
+      
+      <% if (settings.googleDriveConnected) { %>
+      <div class="form-group" style="margin-top: 1.5rem;">
+        <label for="cloudBackupSchedule" class="form-label">Cloud Backup Schedule</label>
+        <select id="cloudBackupSchedule" class="form-select">
+          <option value="manual" <%= settings.cloudSchedule === 'manual' ? 'selected' : '' %>>Manual Only</option>
+          <option value="hourly" <%= settings.cloudSchedule === 'hourly' ? 'selected' : '' %>>Every Hour</option>
+          <option value="daily" <%= settings.cloudSchedule === 'daily' ? 'selected' : '' %>>Daily</option>
+          <option value="weekly" <%= settings.cloudSchedule === 'weekly' ? 'selected' : '' %>>Weekly</option>
+        </select>
+        <small style="color: var(--text-secondary); display: block; margin-top: 0.5rem;">
+          Automatically upload latest backup to Google Drive
+        </small>
+      </div>
+      <% } %>
+    </div>
+    
+    <div class="card mb-4">
+      <h3 class="mb-3">Cloud Services</h3>
+      <div class="cloud-services">
+        <% if (settings.googleDriveConnected) { %>
+          <div class="cloud-service" style="background: var(--success); position: relative; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 1rem;">
+              <div class="cloud-icon">☁️</div>
+              <div>
+                <div class="cloud-name">Google Drive</div>
+                <div style="font-size: 0.85rem; color: rgba(255,255,255,0.8);">Connected</div>
+              </div>
+            </div>
+            <button type="button" class="btn btn-danger" id="disconnectGoogleDriveBtn">Disconnect</button>
+          </div>
+        <% } else { %>
+          <a href="/backups/google-drive/connect" class="cloud-service">
+            <div class="cloud-icon">☁️</div>
+            <div>
+              <div class="cloud-name">Google Drive</div>
+              <div style="font-size: 0.85rem; color: var(--text-secondary);">Click to connect</div>
+            </div>
+          </a>
+        <% } %>
+      </div>
+    </div>
+    
+    <h2 class="mb-3">Available Backups</h2>
+    
+    <div class="backups-list">
+      <% backups.forEach(backup => { %>
+        <div class="backup-item">
+          <div class="backup-info">
+            <div class="backup-name"><%= backup.name %></div>
+            <div class="backup-meta">
+              <%= new Date(backup.date).toLocaleString() %> · <%= backup.size %>
+            </div>
+          </div>
+          <div class="backup-actions">
+            <button type="button" class="btn btn-success restore-backup-btn" data-backup="<%= backup.name %>">Restore</button>
+            <% if (settings.googleDriveConnected) { %>
+              <button type="button" class="btn btn-secondary upload-drive-btn" data-backup="<%= backup.name %>">Upload to Drive</button>
+            <% } %>
+            <button type="button" class="btn btn-danger delete-backup-btn" data-backup="<%= backup.name %>">Delete</button>
+          </div>
+        </div>
+      <% }) %>
+    </div>
+    
+    <% if (backups.length === 0) { %>
+      <div class="text-center mt-4">
+        <p style="color: var(--text-secondary); font-size: 1.2rem;">No backups available. Create your first backup!</p>
+      </div>
+    <% } %>
+  </div>
+  
+  <!-- Custom Confirm Modal -->
+  <div id="confirmModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title">Confirm Action</h2>
+        <button type="button" class="modal-close" id="closeConfirmBtn">&times;</button>
+      </div>
+      
+      <p id="confirmMessage" style="margin-bottom: 2rem; color: var(--text-primary);"></p>
+      
+      <div class="flex gap-2">
+        <button type="button" class="btn btn-danger" id="confirmOkBtn">Confirm</button>
+        <button type="button" class="btn btn-secondary" id="confirmCancelBtn">Cancel</button>
+      </div>
+    </div>
+  </div>
+  
+  <script src="/js/main.js"></script>
+  <script src="/js/backups.js"></script>
+  <script src="/js/novel-detail.js"></script>
+  <script>
+    // Local backup schedule
+    var backupSchedule = document.getElementById('backupSchedule');
+    if (backupSchedule) {
+      backupSchedule.addEventListener('change', function() {
+        fetch('/backups/schedule', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ schedule: this.value })
+        })
+        .then(function(response) {
+          return response.json();
+        })
+        .then(function(data) {
+          if (data.success) {
+            window.showNotification('Local backup schedule updated');
+          } else {
+            window.showNotification('Failed to update schedule', 'error');
+          }
+        })
+        .catch(function(err) {
+          console.error('Error updating schedule:', err);
+          window.showNotification('Failed to update schedule', 'error');
+        });
+      });
+    }
+
+    // Cloud backup schedule
+    var cloudBackupSchedule = document.getElementById('cloudBackupSchedule');
+    if (cloudBackupSchedule) {
+      cloudBackupSchedule.addEventListener('change', function() {
+        fetch('/backups/cloud-schedule', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ schedule: this.value })
+        })
+        .then(function(response) {
+          return response.json();
+        })
+        .then(function(data) {
+          if (data.success) {
+            window.showNotification('Cloud backup schedule updated');
+          } else {
+            window.showNotification('Failed to update cloud schedule', 'error');
+          }
+        })
+        .catch(function(err) {
+          console.error('Error updating cloud schedule:', err);
+          window.showNotification('Failed to update cloud schedule', 'error');
+        });
+      });
+    }
+    
+    // Disconnect Google Drive
+    var disconnectGoogleDriveBtn = document.getElementById('disconnectGoogleDriveBtn');
+    if (disconnectGoogleDriveBtn) {
+      disconnectGoogleDriveBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        window.showConfirm('Are you sure you want to disconnect Google Drive?', function() {
+          fetch('/backups/google-drive/disconnect', {
+            method: 'POST'
+          })
+          .then(function(response) {
+            return response.json();
+          })
+          .then(function(data) {
+            if (data.success) {
+              window.showNotification('Google Drive disconnected successfully');
+              setTimeout(function() {
+                location.reload();
+              }, 1000);
+            } else {
+              window.showNotification('Failed to disconnect Google Drive', 'error');
+            }
+          })
+          .catch(function(err) {
+            console.error('Error disconnecting Google Drive:', err);
+            window.showNotification('Failed to disconnect Google Drive', 'error');
+          });
+        });
+      });
+    }
+  </script>
+</body>
+</html>

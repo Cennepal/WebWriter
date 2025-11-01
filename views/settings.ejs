@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="<%= theme %>">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Settings - WebWriter</title>
+  <link rel="stylesheet" href="/css/style.css">
+  
+  <% 
+    const bgSettings = typeof backgroundSettings !== 'undefined' ? backgroundSettings : { enabled: false, url: '', opacity: 0.3, editorEnabled: false };
+    const shouldShowBg = bgSettings.enabled && bgSettings.url;
+  %>
+  
+  <% if (shouldShowBg) { %>
+  <style>
+    body {
+      background-image: url('<%= bgSettings.url %>') !important;
+      background-size: cover !important;
+      background-position: center !important;
+      background-repeat: no-repeat !important;
+      background-attachment: fixed !important;
+    }
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: var(--bg-primary);
+      opacity: <%= 1 - parseFloat(bgSettings.opacity) %>;
+      pointer-events: none;
+      z-index: -1;
+    }
+  </style>
+  <% } %>
+</head>
+<body>
+  <% if (user) { %>
+  <nav class="navbar">
+    <div class="nav-content">
+      <a href="/novels" class="nav-brand">WebWriter</a>
+      <ul class="nav-links">
+        <li><a href="/novels">Novels</a></li>
+        <li><a href="/analytics">Analytics</a></li>
+        <li><a href="/backups">Backups</a></li>
+        <li><a href="/settings">Settings</a></li>
+        <li><button id="themeToggle" class="theme-toggle">🌓</button></li>
+        <li><a href="/auth/logout">Logout</a></li>
+      </ul>
+    </div>
+  </nav>
+  <% } %>
+  
+  <div class="container">
+    <h1 class="mb-4">Settings</h1>
+    
+    <div class="card mb-4">
+      <h3 class="mb-3">Appearance</h3>
+      <div class="form-group">
+        <label for="defaultTheme" class="form-label">Default Theme</label>
+        <select id="defaultTheme" class="form-select">
+          <option value="dark" <%= settings.theme === 'dark' ? 'selected' : '' %>>Dark Mode</option>
+          <option value="light" <%= settings.theme === 'light' ? 'selected' : '' %>>Light Mode</option>
+        </select>
+      </div>
+    </div>
+    
+    <div class="card mb-4">
+      <h3 class="mb-3">Background Settings</h3>
+      <div class="form-group">
+        <label style="display: flex; align-items: center; cursor: pointer;">
+          <input type="checkbox" id="backgroundEnabled" class="form-checkbox" <%= settings.background_enabled ? 'checked' : '' %>>
+          <span>Enable Background Image</span>
+        </label>
+      </div>
+      
+      <div id="backgroundSettings" style="display: <%= settings.background_enabled ? 'block' : 'none' %>;">
+        <div class="form-group">
+          <label for="backgroundUrl" class="form-label">Background Image URL</label>
+          <input type="text" id="backgroundUrl" class="form-input" value="<%= settings.background_url || '' %>" placeholder="https://example.com/image.jpg or leave empty to upload">
+          <small style="color: var(--text-secondary); display: block; margin-top: 0.5rem;">
+            Enter a URL to an image, or upload a file below
+          </small>
+        </div>
+        
+        <div class="form-group">
+          <label for="backgroundFile" class="form-label">Or Upload Background Image</label>
+          <input type="file" id="backgroundFile" class="form-input" accept="image/*">
+          <% if (settings.background_url) { %>
+            <div style="margin-top: 1rem;">
+              <small style="color: var(--text-secondary);">Current: </small>
+              <img src="<%= settings.background_url %>" style="max-width: 200px; max-height: 100px; border-radius: 4px; margin-top: 0.5rem;" alt="Current background">
+            </div>
+          <% } %>
+        </div>
+        
+        <div class="form-group">
+          <label for="backgroundOpacity" class="form-label">Background Opacity: <span id="opacityValue"><%= settings.background_opacity || 0.3 %></span></label>
+          <input type="range" id="backgroundOpacity" class="form-range" min="0" max="1" step="0.05" value="<%= settings.background_opacity || 0.3 %>" style="width: 100%;">
+          <div style="display: flex; justify-content: space-between; margin-top: 0.5rem;">
+            <small style="color: var(--text-secondary);">Transparent</small>
+            <small style="color: var(--text-secondary);">Opaque</small>
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label style="display: flex; align-items: center; cursor: pointer;">
+            <input type="checkbox" id="backgroundEditorEnabled" class="form-checkbox" <%= settings.background_editor_enabled ? 'checked' : '' %>>
+            <span>Show Background in Editor</span>
+          </label>
+          <small style="color: var(--text-secondary); display: block; margin-top: 0.5rem;">
+            When disabled, the editor will have a plain background for distraction-free writing
+          </small>
+        </div>
+        
+        <button type="button" class="btn btn-primary" id="saveBackgroundBtn">Save Background Settings</button>
+      </div>
+    </div>
+    
+    <div class="card mb-4">
+      <h3 class="mb-3">Lite Writer Integration</h3>
+      <div class="form-group">
+        <label style="display: flex; align-items: center; cursor: pointer;">
+          <input type="checkbox" id="litewriterEnabled" class="form-checkbox" <%= settings.litewriter_enabled ? 'checked' : '' %>>
+          <span>Enable Lite Writer Remote Novels (WebDAV)</span>
+        </label>
+      </div>
+      
+      <div id="litewriterSettings" style="display: <%= settings.litewriter_enabled ? 'block' : 'none' %>;">
+        <div class="form-group">
+          <label for="litewriterUrl" class="form-label">Lite Writer WebDAV URL</label>
+          <input type="text" id="litewriterUrl" class="form-input" value="<%= settings.litewriter_url || '' %>" placeholder="http://192.168.1.100:8080">
+          <small style="color: var(--text-secondary); display: block; margin-top: 0.5rem;">
+            Enter the WebDAV URL of your Lite Writer instance (e.g., http://192.168.1.100:8080)
+          </small>
+        </div>
+        
+        <div class="form-group">
+          <label for="litewriterUsername" class="form-label">Username (Optional)</label>
+          <input type="text" id="litewriterUsername" class="form-input" value="<%= settings.litewriter_username || '' %>" placeholder="username">
+          <small style="color: var(--text-secondary); display: block; margin-top: 0.5rem;">
+            Leave empty if no authentication is required
+          </small>
+        </div>
+        
+        <div class="form-group">
+          <label for="litewriterPassword" class="form-label">Password (Optional)</label>
+          <input type="password" id="litewriterPassword" class="form-input" value="<%= settings.litewriter_password || '' %>" placeholder="password">
+        </div>
+        
+        <div class="flex gap-2">
+          <button type="button" class="btn btn-primary" id="saveLiteWriterBtn">Save Settings</button>
+          <button type="button" class="btn btn-secondary" id="testLiteWriterBtn">Test Connection</button>
+        </div>
+      </div>
+    </div>
+    
+    <div class="card mb-4">
+      <h3 class="mb-3">Account</h3>
+      <p style="color: var(--text-secondary);">Username: <strong><%= user.username %></strong></p>
+      <button type="button" class="btn btn-secondary mt-2" id="changePasswordBtn">Change Password</button>
+    </div>
+    
+    <div class="card">
+      <h3 class="mb-3">About WebWriter</h3>
+      <p style="color: var(--text-secondary);">Version 1.0.0</p>
+      <p style="color: var(--text-secondary); margin-top: 1rem;">A minimalistic, self-hosted novel writing application built with Node.js.</p>
+    </div>
+  </div>
+  
+  <!-- Change Password Modal -->
+  <div id="changePasswordModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title">Change Password</h2>
+        <button type="button" class="modal-close" id="closeChangePasswordBtn">&times;</button>
+      </div>
+      
+      <form id="changePasswordForm">
+        <div class="form-group">
+          <label for="currentPassword" class="form-label">Current Password</label>
+          <input type="password" id="currentPassword" name="currentPassword" class="form-input" required>
+        </div>
+        
+        <div class="form-group">
+          <label for="newPassword" class="form-label">New Password</label>
+          <input type="password" id="newPassword" name="newPassword" class="form-input" required minlength="4">
+        </div>
+        
+        <div class="form-group">
+          <label for="confirmPassword" class="form-label">Confirm New Password</label>
+          <input type="password" id="confirmPassword" name="confirmPassword" class="form-input" required minlength="4">
+        </div>
+        
+        <div class="flex gap-2">
+          <button type="submit" class="btn btn-primary">Change Password</button>
+          <button type="button" class="btn btn-secondary" id="cancelChangePasswordBtn">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  
+  <script src="/js/main.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      
+      // Background settings toggle
+      var backgroundEnabled = document.getElementById('backgroundEnabled');
+      var backgroundSettings = document.getElementById('backgroundSettings');
+      
+      if (backgroundEnabled) {
+        backgroundEnabled.addEventListener('change', function() {
+          backgroundSettings.style.display = this.checked ? 'block' : 'none';
+        });
+      }
+      
+      // Opacity slider
+      var backgroundOpacity = document.getElementById('backgroundOpacity');
+      var opacityValue = document.getElementById('opacityValue');
+      
+      if (backgroundOpacity && opacityValue) {
+        backgroundOpacity.addEventListener('input', function() {
+          opacityValue.textContent = this.value;
+        });
+      }
+      
+      // Save background settings
+      var saveBackgroundBtn = document.getElementById('saveBackgroundBtn');
+      if (saveBackgroundBtn) {
+        saveBackgroundBtn.addEventListener('click', function() {
+          var enabled = document.getElementById('backgroundEnabled').checked;
+          var url = document.getElementById('backgroundUrl').value.trim();
+          var opacity = document.getElementById('backgroundOpacity').value;
+          var editorEnabled = document.getElementById('backgroundEditorEnabled').checked;
+          var fileInput = document.getElementById('backgroundFile');
+          
+          var formData = new FormData();
+          formData.append('enabled', enabled);
+          formData.append('opacity', opacity);
+          formData.append('editorEnabled', editorEnabled);
+          formData.append('url', url);
+          
+          if (fileInput.files.length > 0) {
+            formData.append('background', fileInput.files[0]);
+          }
+          
+          fetch('/settings/background', {
+            method: 'POST',
+            body: formData
+          })
+          .then(function(response) {
+            return response.json();
+          })
+          .then(function(data) {
+            if (data.success) {
+              window.showNotification('Background settings saved successfully');
+              setTimeout(function() {
+                location.reload();
+              }, 1000);
+            } else {
+              window.showNotification('Failed to save background settings', 'error');
+            }
+          })
+          .catch(function(err) {
+            console.error('Error saving background settings:', err);
+            window.showNotification('Failed to save background settings', 'error');
+          });
+        });
+      }
+      
+      var litewriterEnabled = document.getElementById('litewriterEnabled');
+      var litewriterSettings = document.getElementById('litewriterSettings');
+      
+      if (litewriterEnabled) {
+        litewriterEnabled.addEventListener('change', function() {
+          litewriterSettings.style.display = this.checked ? 'block' : 'none';
+        });
+      }
+      
+      var testLiteWriterBtn = document.getElementById('testLiteWriterBtn');
+      if (testLiteWriterBtn) {
+        testLiteWriterBtn.addEventListener('click', function() {
+          this.disabled = true;
+          this.textContent = 'Testing...';
+          
+          fetch('/litewriter/test-connection')
+            .then(function(response) {
+              return response.json();
+            })
+            .then(function(data) {
+              if (data.success) {
+                window.showNotification('Connection successful! Found ' + data.directoriesFound + ' directories.');
+              } else {
+                window.showNotification('Connection failed: ' + data.error, 'error');
+              }
+              testLiteWriterBtn.disabled = false;
+              testLiteWriterBtn.textContent = 'Test Connection';
+            })
+            .catch(function(err) {
+              console.error('Error testing connection:', err);
+              window.showNotification('Connection test failed', 'error');
+              testLiteWriterBtn.disabled = false;
+              testLiteWriterBtn.textContent = 'Test Connection';
+            });
+        });
+      }
+      
+      var saveLiteWriterBtn = document.getElementById('saveLiteWriterBtn');
+      if (saveLiteWriterBtn) {
+        saveLiteWriterBtn.addEventListener('click', function() {
+          var enabled = document.getElementById('litewriterEnabled').checked;
+          var url = document.getElementById('litewriterUrl').value.trim();
+          var username = document.getElementById('litewriterUsername').value.trim();
+          var password = document.getElementById('litewriterPassword').value;
+          
+          if (enabled && !url) {
+            window.showNotification('Please enter a Lite Writer URL', 'error');
+            return;
+          }
+          
+          fetch('/settings/litewriter', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              enabled: enabled,
+              url: url,
+              username: username,
+              password: password
+            })
+          })
+          .then(function(response) {
+            return response.json();
+          })
+          .then(function(data) {
+            if (data.success) {
+              window.showNotification('Lite Writer settings saved successfully');
+            } else {
+              window.showNotification('Failed to save Lite Writer settings', 'error');
+            }
+          })
+          .catch(function(err) {
+            console.error('Error saving Lite Writer settings:', err);
+            window.showNotification('Failed to save Lite Writer settings', 'error');
+          });
+        });
+      }
+      
+      var changePasswordBtn = document.getElementById('changePasswordBtn');
+      var changePasswordModal = document.getElementById('changePasswordModal');
+      var closeChangePasswordBtn = document.getElementById('closeChangePasswordBtn');
+      var cancelChangePasswordBtn = document.getElementById('cancelChangePasswordBtn');
+      
+      if (changePasswordBtn) {
+        changePasswordBtn.addEventListener('click', function() {
+          changePasswordModal.classList.add('active');
+        });
+      }
+      
+      if (closeChangePasswordBtn) {
+        closeChangePasswordBtn.addEventListener('click', function() {
+          changePasswordModal.classList.remove('active');
+        });
+      }
+      
+      if (cancelChangePasswordBtn) {
+        cancelChangePasswordBtn.addEventListener('click', function() {
+          changePasswordModal.classList.remove('active');
+        });
+      }
+      
+      var defaultThemeSelect = document.getElementById('defaultTheme');
+      if (defaultThemeSelect) {
+        defaultThemeSelect.addEventListener('change', function(e) {
+          fetch('/settings/theme', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ theme: e.target.value })
+          })
+          .then(function(response) {
+            return response.json();
+          })
+          .then(function(data) {
+            if (data.success) {
+              window.showNotification('Theme preference saved');
+              document.documentElement.setAttribute('data-theme', e.target.value);
+              localStorage.setItem('theme', e.target.value);
+            } else {
+              window.showNotification('Failed to save theme preference', 'error');
+            }
+          })
+          .catch(function(err) {
+            console.error('Error saving theme:', err);
+            window.showNotification('Failed to save theme preference', 'error');
+          });
+        });
+      }
+
+      var changePasswordForm = document.getElementById('changePasswordForm');
+      if (changePasswordForm) {
+        changePasswordForm.addEventListener('submit', function(e) {
+          e.preventDefault();
+          
+          var currentPassword = document.getElementById('currentPassword').value;
+          var newPassword = document.getElementById('newPassword').value;
+          var confirmPassword = document.getElementById('confirmPassword').value;
+          
+          if (newPassword !== confirmPassword) {
+            window.showNotification('Passwords do not match', 'error');
+            return;
+          }
+          
+          if (newPassword.length < 4) {
+            window.showNotification('Password must be at least 4 characters', 'error');
+            return;
+          }
+          
+          fetch('/settings/change-password', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              currentPassword: currentPassword,
+              newPassword: newPassword
+            })
+          })
+          .then(function(response) {
+            return response.json();
+          })
+          .then(function(data) {
+            if (data.success) {
+              window.showNotification('Password changed successfully');
+              changePasswordModal.classList.remove('active');
+              changePasswordForm.reset();
+            } else {
+              window.showNotification(data.error || 'Failed to change password', 'error');
+            }
+          })
+          .catch(function(err) {
+            console.error('Error changing password:', err);
+            window.showNotification('Failed to change password', 'error');
+          });
+        });
+      }
+
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,32 @@
+<svg width="400" height="600" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <rect width="400" height="600" fill="url(#gradient)"/>
+  
+  <g opacity="0.1">
+    <circle cx="100" cy="150" r="120" fill="white"/>
+    <circle cx="320" cy="380" r="100" fill="white"/>
+    <circle cx="200" cy="500" r="80" fill="white"/>
+  </g>
+  
+  <text x="200" y="280" font-family="Arial, sans-serif" font-size="48" font-weight="bold" fill="white" text-anchor="middle" opacity="0.9">
+    Novel
+  </text>
+  
+  <text x="200" y="320" font-family="Arial, sans-serif" font-size="24" fill="white" text-anchor="middle" opacity="0.7">
+    Cover
+  </text>
+  
+  <g opacity="0.3">
+    <rect x="50" y="450" width="300" height="2" fill="white"/>
+  </g>
+  
+  <text x="200" y="520" font-family="Arial, sans-serif" font-size="18" fill="white" text-anchor="middle" opacity="0.6">
+    WebWriter
+  </text>
+</svg>

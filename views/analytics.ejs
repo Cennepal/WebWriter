@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="<%= theme %>">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Analytics - WebWriter</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  
+  <% 
+    const bgSettings = typeof backgroundSettings !== 'undefined' ? backgroundSettings : { enabled: false, url: '', opacity: 0.3, editorEnabled: false };
+    const shouldShowBg = bgSettings.enabled && bgSettings.url;
+  %>
+  
+  <% if (shouldShowBg) { %>
+  <style>
+    body {
+      background-image: url('<%= bgSettings.url %>') !important;
+      background-size: cover !important;
+      background-position: center !important;
+      background-repeat: no-repeat !important;
+      background-attachment: fixed !important;
+    }
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: var(--bg-primary);
+      opacity: <%= 1 - parseFloat(bgSettings.opacity) %>;
+      pointer-events: none;
+      z-index: -1;
+    }
+  </style>
+  <% } %>
+</head>
+<body>
+  <% if (user) { %>
+  <nav class="navbar">
+    <div class="nav-content">
+      <a href="/novels" class="nav-brand">WebWriter</a>
+      <ul class="nav-links">
+        <li><a href="/novels">Novels</a></li>
+        <li><a href="/analytics">Analytics</a></li>
+        <li><a href="/backups">Backups</a></li>
+        <li><a href="/settings">Settings</a></li>
+        <li><button id="themeToggle" class="theme-toggle">🌓</button></li>
+        <li><a href="/auth/logout">Logout</a></li>
+      </ul>
+    </div>
+  </nav>
+  <% } %>
+  
+  <div class="container">
+    <h1 class="mb-4">Writing Analytics</h1>
+    
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value"><%= stats.totalWords.toLocaleString() %></div>
+        <div class="stat-label">Total Words</div>
+        <% if (stats.weeklyTrend !== 0) { %>
+          <div class="stat-trend <%= stats.weeklyTrend > 0 ? 'trend-up' : 'trend-down' %>">
+            <%= stats.weeklyTrend > 0 ? '+' : '' %><%= stats.weeklyTrend.toLocaleString() %> this week
+          </div>
+        <% } %>
+      </div>
+      
+      <div class="stat-card">
+        <div class="stat-value"><%= stats.totalBooks %></div>
+        <div class="stat-label">Total Books</div>
+      </div>
+      
+      <div class="stat-card">
+        <div class="stat-value"><%= stats.totalChapters %></div>
+        <div class="stat-label">Total Chapters</div>
+      </div>
+    </div>
+    
+    <div class="charts-row">
+      <div class="chart-container">
+        <h2 class="chart-title">Daily Progress</h2>
+        <div class="chart-wrapper">
+          <canvas id="dailyWordsChart" data-daily='<%= JSON.stringify(stats.dailyWords) %>'></canvas>
+        </div>
+      </div>
+      
+      <div class="chart-container">
+        <h2 class="chart-title">Words by Novel</h2>
+        <div class="chart-wrapper">
+          <canvas id="novelWordsChart" data-novels='<%= JSON.stringify(stats.wordsByNovel) %>'></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script src="/js/main.js"></script>
+  <script src="/js/analytics.js"></script>
+</body>
+</html>

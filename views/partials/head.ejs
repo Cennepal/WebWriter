@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="<%= theme %>">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= typeof title !== 'undefined' ? title : 'WebWriter' %></title>
+  <link rel="stylesheet" href="/css/style.css">
+  <% if (typeof fonts !== 'undefined' && fonts) { %>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@300;400&family=Source+Serif+4:wght@300;400&display=swap" rel="stylesheet">
+  <% } %>
+  
+  <% 
+    const isEditor = typeof isEditorPage !== 'undefined' && isEditorPage;
+    const bgSettings = typeof backgroundSettings !== 'undefined' ? backgroundSettings : { enabled: false, url: '', opacity: 0.3, editorEnabled: false };
+    const shouldShowBg = bgSettings.enabled && bgSettings.url && (!isEditor || bgSettings.editorEnabled);
+  %>
+  
+  <% if (shouldShowBg) { %>
+  <style>
+    body {
+      background-image: url('<%= bgSettings.url %>') !important;
+      background-size: cover !important;
+      background-position: center !important;
+      background-repeat: no-repeat !important;
+      background-attachment: fixed !important;
+    }
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: var(--bg-primary);
+      opacity: <%= 1 - parseFloat(bgSettings.opacity) %>;
+      pointer-events: none;
+      z-index: -1;
+    }
+  </style>
+  <% } %>
+</head>
