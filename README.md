@@ -1,4 +1,6 @@
 # WebWriter
+<img width="1900" height="905" alt="screen" src="https://github.com/user-attachments/assets/10e4bd8d-2b2b-493e-b374-2ac334045373" />
+
 So what does this Webapp do? It's basically a super minimalistic self-hostable novel writing site. You can create novels, give them covers, create sub sections called "books" and make new chapters in a super lightweight editor that is as distraction-free as possible.
 
 It also has an option to integrate with LiteWriter, the android app. You just need to fire up the WebDAV server in the app and make sure both the webapp and the phone are in the same network (I recommend using tailscale).
