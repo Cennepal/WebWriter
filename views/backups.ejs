@@ -105,7 +105,7 @@
             <button type="button" class="btn btn-danger" id="disconnectGoogleDriveBtn">Disconnect</button>
           </div>
         <% } else { %>
-          <a href="/backups/google-drive/connect" class="cloud-service">
+          <a href="/backups/google/auth" class="cloud-service">
             <div class="cloud-icon">☁️</div>
             <div>
               <div class="cloud-name">Google Drive</div>
@@ -230,7 +230,7 @@
         e.stopPropagation();
         
         window.showConfirm('Are you sure you want to disconnect Google Drive?', function() {
-          fetch('/backups/google-drive/disconnect', {
+          fetch('/backups/google/disconnect', {
             method: 'POST'
           })
           .then(function(response) {

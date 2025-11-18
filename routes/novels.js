@@ -80,7 +80,15 @@ router.get('/', async (req, res) => {
     let liteNovels = [];
     try {
       if (req.session.user) {
-        liteNovels = await getRemoteNovels(req.session.user.id);
+        // Timeout after 3 seconds to prevent page load hanging
+        const timeout = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('LiteWriter connection timed out')), 3000)
+        );
+        
+        liteNovels = await Promise.race([
+          getRemoteNovels(req.session.user.id),
+          timeout
+        ]);
       }
     } catch (err) {
       // don't block: show no remote novels if error
