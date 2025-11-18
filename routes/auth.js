@@ -92,7 +92,14 @@ router.post('/login', async (req, res) => {
     const settings = await db.getUserSettings(user.id);
     req.session.theme = settings.theme || 'dark';
 
-    res.redirect('/novels');
+    // Explicitly save session before redirect to ensure cookie is set
+    req.session.save((err) => {
+      if (err) {
+        console.error('Session save error:', err);
+        return res.render('login', { error: 'Login session error', backgroundSettings: { enabled: false, url: '', opacity: 0.3, editorEnabled: false } });
+      }
+      res.redirect('/novels');
+    });
   } catch (err) {
     console.error('Login error:', err);
     res.render('login', { error: 'An error occurred during login', backgroundSettings: { enabled: false, url: '', opacity: 0.3, editorEnabled: false } });

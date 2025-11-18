@@ -10,6 +10,10 @@ const db = require('./database/db');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Trust proxy - required for secure cookies behind Nginx
+// 'true' trusts the X-Forwarded-* headers from the reverse proxy
+app.set('trust proxy', true);
+
 if (!process.env.SESSION_SECRET) {
   console.warn('WARNING: SESSION_SECRET is not set. Using a default secret. This is not secure for production.');
 }
@@ -21,8 +25,8 @@ db.initialize().catch(err => {
 });
 
 // Middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 app.use(express.static('public'));
 
 // Serve data directory for novel covers
