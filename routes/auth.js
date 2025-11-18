@@ -1,10 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
-const Database = require('../database/db');
-
-const db = new Database();
-db.initialize();
+const db = require('../database/db');
 
 // Login page - LOAD BACKGROUND SETTINGS EVEN WITHOUT USER
 router.get('/login', async (req, res) => {

@@ -5,11 +5,8 @@ const path = require('path');
 const archiver = require('archiver');
 const extract = require('extract-zip');
 const { requireAuth } = require('../middleware/auth');
-const Database = require('../database/db');
+const db = require('../database/db');
 const { google } = require('googleapis');
-
-const db = new Database();
-db.initialize();
 
 router.use(requireAuth);
 

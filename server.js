@@ -5,13 +5,16 @@ const session = require('express-session');
 const SqliteStore = require('better-sqlite3-session-store')(session);
 const Database = require('better-sqlite3');
 const path = require('path');
-const AppDatabase = require('./database/db');
+const db = require('./database/db');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+if (!process.env.SESSION_SECRET) {
+  console.warn('WARNING: SESSION_SECRET is not set. Using a default secret. This is not secure for production.');
+}
+
 // Initialize database
-const db = new AppDatabase();
 db.initialize().catch(err => {
   console.error('Failed to initialize database:', err);
   process.exit(1);
@@ -35,7 +38,7 @@ app.use(session({
       intervalMs: 900000 // 15 minutes
     }
   }),
-  secret: process.env.SESSION_SECRET,
+  secret: process.env.SESSION_SECRET || 'default-dev-secret',
   resave: false,
   saveUninitialized: false,
   cookie: {

@@ -3,13 +3,29 @@ const router = express.Router();
 const fs = require('fs').promises;
 const path = require('path');
 const multer = require('multer');
-const axios = require('axios');
 const { requireAuth } = require('../middleware/auth');
+const { isValidFilename, isValidId } = require('../utils/validation');
+const { getNovelStats, updateNovelMeta, getNovelStructure } = require('../utils/novelManager');
+const { getRemoteNovels, getRemoteNovel } = require('../utils/litewriterManager');
 
 const upload = multer({ dest: 'uploads/' });
 const novelsDir = path.join(__dirname, '../data/novels');
 
 router.use(requireAuth);
+
+// Helper to validate novel path
+async function validateNovelPath(novelId) {
+  if (!isValidId(novelId)) throw new Error('Invalid novel ID');
+  const novelPath = path.join(novelsDir, novelId);
+  // Ensure path is within novelsDir
+  if (!novelPath.startsWith(novelsDir)) throw new Error('Invalid path');
+  try {
+    await fs.access(novelPath);
+    return novelPath;
+  } catch {
+    throw new Error('Novel not found');
+  }
+}
 
 // Get all novels
 router.get('/', async (req, res) => {
@@ -36,7 +52,15 @@ router.get('/', async (req, res) => {
             // If Synopsis.md doesn't exist, use meta.synopsis
           }
 
-          const stats = await getNovelStats(novelPath);
+          // Use cached stats if available, otherwise calculate
+          let stats = { wordCount: meta.wordCount || 0, bookCount: meta.bookCount || 0 };
+          if (meta.wordCount === undefined || meta.bookCount === undefined) {
+             stats = await getNovelStats(novelPath);
+             // Update meta with stats
+             meta.wordCount = stats.wordCount;
+             meta.bookCount = stats.bookCount;
+             await fs.writeFile(metaPath, JSON.stringify(meta, null, 2));
+          }
 
           novels.push({
             id: entry.name,
@@ -55,11 +79,9 @@ router.get('/', async (req, res) => {
     // Fetch LiteWriter (remote) novels and append as separate section
     let liteNovels = [];
     try {
-      // call route we created above to fetch remote novels
-      const resp = await axios.get(`${req.protocol}://${req.get('host')}/litewriter/novels`, {
-        headers: { cookie: req.headers.cookie } // pass session cookie so litewriter route can auth
-      });
-      liteNovels = resp.data && resp.data.novels ? resp.data.novels : [];
+      if (req.session.user) {
+        liteNovels = await getRemoteNovels(req.session.user.id);
+      }
     } catch (err) {
       // don't block: show no remote novels if error
       console.warn('Could not load LiteWriter novels:', err && err.message ? err.message : err);
@@ -130,11 +152,7 @@ router.get('/:id', async (req, res) => {
     
     if (isRemote) {
       // Fetch from LiteWriter
-      const resp = await axios.get(`${req.protocol}://${req.get('host')}/litewriter/novels/${req.params.id}`, {
-        headers: { cookie: req.headers.cookie }
-      });
-      
-      const { novel, structure } = resp.data;
+      const { novel, structure } = await getRemoteNovel(req.session.user.id, req.params.id);
       
       res.render('novel-detail', { 
         novel,
@@ -143,7 +161,7 @@ router.get('/:id', async (req, res) => {
       });
     } else {
       // Local novel
-      const novelPath = path.join(novelsDir, req.params.id);
+      const novelPath = await validateNovelPath(req.params.id);
       const metaPath = path.join(novelPath, 'meta.json');
       
       const metaData = await fs.readFile(metaPath, 'utf8');
@@ -176,6 +194,8 @@ router.get('/:id', async (req, res) => {
 router.post('/create', upload.single('cover'), async (req, res) => {
   try {
     const { title, synopsis } = req.body;
+    if (!title) return res.status(400).json({ error: 'Title is required' });
+
     const novelId = Date.now().toString();
     const novelPath = path.join(novelsDir, novelId);
     
@@ -201,7 +221,9 @@ router.post('/create', upload.single('cover'), async (req, res) => {
       title,
       cover: coverPath,
       created: new Date().toISOString(),
-      lastModified: new Date().toISOString()
+      lastModified: new Date().toISOString(),
+      wordCount: 0,
+      bookCount: 1
     };
     
     await fs.writeFile(
@@ -219,7 +241,7 @@ router.post('/create', upload.single('cover'), async (req, res) => {
 // Update novel meta
 router.post('/:id/update', upload.single('cover'), async (req, res) => {
   try {
-    const novelPath = path.join(novelsDir, req.params.id);
+    const novelPath = await validateNovelPath(req.params.id);
     const metaPath = path.join(novelPath, 'meta.json');
     
     const metaData = await fs.readFile(metaPath, 'utf8');
@@ -255,7 +277,9 @@ router.post('/:id/update', upload.single('cover'), async (req, res) => {
 router.post('/:id/books/create', async (req, res) => {
   try {
     const { name } = req.body;
-    const novelPath = path.join(novelsDir, req.params.id);
+    if (!isValidFilename(name)) return res.status(400).json({ error: 'Invalid book name' });
+
+    const novelPath = await validateNovelPath(req.params.id);
     const bookPath = path.join(novelPath, name);
     
     await fs.mkdir(bookPath, { recursive: true });
@@ -274,13 +298,14 @@ router.post('/:id/books/create', async (req, res) => {
 router.delete('/:id/books/:book', async (req, res) => {
   try {
     const { id, book } = req.params;
+    if (!isValidFilename(book)) return res.status(400).json({ error: 'Invalid book name' });
     
     // Prevent deleting Main book
     if (book === 'Main') {
       return res.status(400).json({ error: 'Cannot delete Main book' });
     }
     
-    const novelPath = path.join(novelsDir, id);
+    const novelPath = await validateNovelPath(id);
     const bookPath = path.join(novelPath, book);
     
     // Delete the book directory and all its contents
@@ -300,12 +325,16 @@ router.delete('/:id/books/:book', async (req, res) => {
 router.post('/:id/books/:book/chapters/create', async (req, res) => {
   try {
     const { name } = req.body;
-    const novelPath = path.join(novelsDir, req.params.id);
-    const chapterPath = path.join(novelPath, req.params.book, `${name}.md`);
+    const { id, book } = req.params;
+    if (!isValidFilename(name)) return res.status(400).json({ error: 'Invalid chapter name' });
+    if (!isValidFilename(book)) return res.status(400).json({ error: 'Invalid book name' });
+
+    const novelPath = await validateNovelPath(id);
+    const chapterPath = path.join(novelPath, book, `${name}.md`);
     
     await fs.writeFile(chapterPath, '');
     
-    await updateNovelMeta(req.params.id);
+    await updateNovelMeta(id);
     
     res.json({ success: true });
   } catch (err) {
@@ -318,13 +347,15 @@ router.post('/:id/books/:book/chapters/create', async (req, res) => {
 router.delete('/:id/books/:book/chapters/:chapter', async (req, res) => {
   try {
     const { id, book, chapter } = req.params;
+    if (!isValidFilename(book)) return res.status(400).json({ error: 'Invalid book name' });
+    if (!isValidFilename(chapter)) return res.status(400).json({ error: 'Invalid chapter name' });
     
     // Prevent deleting Synopsis from Main book
     if (book === 'Main' && chapter === 'Synopsis') {
       return res.status(400).json({ error: 'Cannot delete Synopsis' });
     }
     
-    const novelPath = path.join(novelsDir, id);
+    const novelPath = await validateNovelPath(id);
     const chapterPath = path.join(novelPath, book, `${chapter}.md`);
     
     // Delete the chapter file
@@ -343,7 +374,7 @@ router.delete('/:id/books/:book/chapters/:chapter', async (req, res) => {
 // Delete novel
 router.delete('/:id', async (req, res) => {
   try {
-    const novelPath = path.join(novelsDir, req.params.id);
+    const novelPath = await validateNovelPath(req.params.id);
     await fs.rm(novelPath, { recursive: true, force: true });
     res.json({ success: true });
   } catch (err) {
@@ -351,89 +382,5 @@ router.delete('/:id', async (req, res) => {
     res.status(500).json({ error: 'Failed to delete novel' });
   }
 });
-
-// Helper functions
-async function getNovelStructure(novelPath) {
-  const structure = [];
-  const entries = await fs.readdir(novelPath, { withFileTypes: true });
-  
-  for (const entry of entries) {
-    if (entry.isDirectory()) {
-      const bookPath = path.join(novelPath, entry.name);
-      const chapters = [];
-      
-      const files = await fs.readdir(bookPath);
-      for (const file of files) {
-        if (file.endsWith('.md')) {
-          const filePath = path.join(bookPath, file);
-          const stats = await fs.stat(filePath);
-          const content = await fs.readFile(filePath, 'utf8');
-          
-          chapters.push({
-            name: file.replace('.md', ''),
-            file: file,
-            wordCount: countWords(content),
-            lastModified: stats.mtime
-          });
-        }
-      }
-      
-      chapters.sort((a, b) => {
-        if (a.name === 'Synopsis') return -1;
-        if (b.name === 'Synopsis') return 1;
-        return 0;
-      });
-      
-      structure.push({
-        name: entry.name,
-        chapters
-      });
-    }
-  }
-  
-  structure.sort((a, b) => {
-    if (a.name === 'Main') return -1;
-    if (b.name === 'Main') return 1;
-    return a.name.localeCompare(b.name);
-  });
-  
-  return structure;
-}
-
-async function getNovelStats(novelPath) {
-  let wordCount = 0;
-  let bookCount = 0;
-  
-  const entries = await fs.readdir(novelPath, { withFileTypes: true });
-  
-  for (const entry of entries) {
-    if (entry.isDirectory()) {
-      bookCount++;
-      const bookPath = path.join(novelPath, entry.name);
-      const files = await fs.readdir(bookPath);
-      
-      for (const file of files) {
-        if (file.endsWith('.md')) {
-          const content = await fs.readFile(path.join(bookPath, file), 'utf8');
-          wordCount += countWords(content);
-        }
-      }
-    }
-  }
-  
-  return { wordCount, bookCount };
-}
-
-function countWords(text) {
-  return text.trim().split(/\s+/).filter(word => word.length > 0).length;
-}
-
-async function updateNovelMeta(novelId) {
-  const metaPath = path.join(novelsDir, novelId, 'meta.json');
-  const metaData = await fs.readFile(metaPath, 'utf8');
-  const meta = JSON.parse(metaData);
-  meta.lastModified = new Date().toISOString();
-  await fs.writeFile(metaPath, JSON.stringify(meta, null, 2));
-}
 
 module.exports = router;

@@ -5,10 +5,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs').promises;
 const { requireAuth } = require('../middleware/auth');
-const Database = require('../database/db');
-
-const db = new Database();
-db.initialize();
+const db = require('../database/db');
 
 // Configure multer for background image uploads
 const storage = multer.diskStorage({

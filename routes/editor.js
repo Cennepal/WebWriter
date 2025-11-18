@@ -2,35 +2,45 @@ const express = require('express');
 const router = express.Router();
 const fs = require('fs').promises;
 const path = require('path');
-const axios = require('axios');
 const { requireAuth } = require('../middleware/auth');
+const { isValidFilename, isValidId } = require('../utils/validation');
+const { updateNovelMeta } = require('../utils/novelManager');
+const { getRemoteNovel, getRemoteChapter } = require('../utils/litewriterManager');
 
 const novelsDir = path.join(__dirname, '../data/novels');
 
 router.use(requireAuth);
 
+// Helper to validate novel path
+async function validateNovelPath(novelId) {
+  if (!isValidId(novelId)) throw new Error('Invalid novel ID');
+  const novelPath = path.join(novelsDir, novelId);
+  if (!novelPath.startsWith(novelsDir)) throw new Error('Invalid path');
+  try {
+    await fs.access(novelPath);
+    return novelPath;
+  } catch {
+    throw new Error('Novel not found');
+  }
+}
+
 // Get editor page
 router.get('/:novelId/:book/:chapter', async (req, res) => {
   try {
     const { novelId, book, chapter } = req.params;
+    
+    if (!isValidFilename(book) || !isValidFilename(chapter)) {
+      return res.redirect('/novels');
+    }
+
     const isRemote = req.query.remote === '1';
     
     if (isRemote) {
       // Fetch from LiteWriter
-      const resp = await axios.get(
-        `${req.protocol}://${req.get('host')}/litewriter/novels/${novelId}/${book}/${chapter}/content`,
-        { headers: { cookie: req.headers.cookie } }
-      );
-      
-      const content = resp.data.content;
+      const content = await getRemoteChapter(req.session.user.id, novelId, book, chapter);
       
       // Get novel info
-      const novelResp = await axios.get(
-        `${req.protocol}://${req.get('host')}/litewriter/novels/${novelId}`,
-        { headers: { cookie: req.headers.cookie } }
-      );
-      
-      const meta = novelResp.data.novel;
+      const { novel: meta } = await getRemoteNovel(req.session.user.id, novelId);
       
       // Get background settings - DO NOT override res.locals
       const backgroundSettings = res.locals.backgroundSettings;
@@ -49,8 +59,9 @@ router.get('/:novelId/:book/:chapter', async (req, res) => {
       });
     } else {
       // Local file
-      const chapterPath = path.join(novelsDir, novelId, book, `${chapter}.md`);
-      const metaPath = path.join(novelsDir, novelId, 'meta.json');
+      const novelPath = await validateNovelPath(novelId);
+      const chapterPath = path.join(novelPath, book, `${chapter}.md`);
+      const metaPath = path.join(novelPath, 'meta.json');
       
       const content = await fs.readFile(chapterPath, 'utf8');
       const metaData = await fs.readFile(metaPath, 'utf8');
@@ -84,15 +95,16 @@ router.post('/:novelId/:book/:chapter/save', async (req, res) => {
     const { novelId, book, chapter } = req.params;
     const { content } = req.body;
     
-    const chapterPath = path.join(novelsDir, novelId, book, `${chapter}.md`);
+    if (!isValidFilename(book) || !isValidFilename(chapter)) {
+      return res.status(400).json({ error: 'Invalid parameters' });
+    }
+
+    const novelPath = await validateNovelPath(novelId);
+    const chapterPath = path.join(novelPath, book, `${chapter}.md`);
     await fs.writeFile(chapterPath, content);
     
-    // Update novel meta
-    const metaPath = path.join(novelsDir, novelId, 'meta.json');
-    const metaData = await fs.readFile(metaPath, 'utf8');
-    const meta = JSON.parse(metaData);
-    meta.lastModified = new Date().toISOString();
-    await fs.writeFile(metaPath, JSON.stringify(meta, null, 2));
+    // Update novel meta and stats
+    await updateNovelMeta(novelId);
     
     res.json({ success: true, saved: new Date().toISOString() });
   } catch (err) {
@@ -105,7 +117,13 @@ router.post('/:novelId/:book/:chapter/save', async (req, res) => {
 router.get('/:novelId/:book/:chapter/content', async (req, res) => {
   try {
     const { novelId, book, chapter } = req.params;
-    const chapterPath = path.join(novelsDir, novelId, book, `${chapter}.md`);
+    
+    if (!isValidFilename(book) || !isValidFilename(chapter)) {
+      return res.status(400).json({ error: 'Invalid parameters' });
+    }
+
+    const novelPath = await validateNovelPath(novelId);
+    const chapterPath = path.join(novelPath, book, `${chapter}.md`);
     
     const content = await fs.readFile(chapterPath, 'utf8');
     
