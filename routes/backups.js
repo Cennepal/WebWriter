@@ -49,16 +49,18 @@ router.get('/', async (req, res) => {
     backups.sort((a, b) => b.created - a.created);
     
     // Get cloud backup settings
-    const settings = await db.getUserSettings(req.session.user.id);
-    const cloudSettings = {
-      googleDriveEnabled: settings.google_drive_enabled === 1,
-      autoBackupEnabled: settings.auto_backup_enabled === 1,
-      backupSchedule: settings.backup_schedule || 'daily'
+    const dbSettings = await db.getUserSettings(req.session.user.id);
+    
+    // Map database settings to view model
+    const settings = {
+      schedule: dbSettings.backup_schedule || 'daily',
+      cloudSchedule: dbSettings.cloud_backup_schedule || 'manual',
+      googleDriveConnected: !!dbSettings.google_drive_token
     };
     
     res.render('backups', { 
       backups,
-      cloudSettings,
+      settings,
       successMessage: req.query.success,
       errorMessage: req.query.error
     });
@@ -205,8 +207,7 @@ router.get('/google/callback', async (req, res) => {
     
     // Save tokens to database
     await db.updateUserSettings(req.session.user.id, {
-      google_drive_token: JSON.stringify(tokens),
-      google_drive_enabled: 1
+      google_drive_token: JSON.stringify(tokens)
     });
     
     res.redirect('/backups?success=' + encodeURIComponent('Google Drive connected successfully'));
@@ -221,8 +222,7 @@ router.post('/google/disconnect', async (req, res) => {
   try {
     await db.updateUserSettings(req.session.user.id, {
       google_drive_token: null,
-      google_drive_enabled: 0,
-      auto_backup_enabled: 0
+      cloud_backup_schedule: 'manual'
     });
     res.json({ success: true });
   } catch (err) {
@@ -234,11 +234,10 @@ router.post('/google/disconnect', async (req, res) => {
 // Update cloud backup schedule
 router.post('/cloud-schedule', async (req, res) => {
   try {
-    const { schedule, enabled } = req.body;
+    const { schedule } = req.body;
     
     await db.updateUserSettings(req.session.user.id, {
-      backup_schedule: schedule,
-      auto_backup_enabled: enabled ? 1 : 0
+      cloud_backup_schedule: schedule
     });
     
     res.json({ success: true });
@@ -252,7 +251,7 @@ router.post('/cloud-schedule', async (req, res) => {
 router.post('/upload-to-drive/:name', async (req, res) => {
   try {
     const settings = await db.getUserSettings(req.session.user.id);
-    if (!settings.google_drive_enabled || !settings.google_drive_token) {
+    if (!settings.google_drive_token) {
       return res.status(400).json({ error: 'Google Drive not connected' });
     }
     
