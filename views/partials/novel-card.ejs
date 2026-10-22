@@ -1,0 +1,8 @@
+<a class="novel-card" href="/novels/<%= novel.source %>/<%= encodeURIComponent(novel.id) %>" data-novel-card data-title="<%= novel.title.toLowerCase() %>" data-words="<%= novel.words %>" data-updated="<%= novel.updatedAt || '' %>">
+  <%- include('cover', { novel }) %>
+  <div>
+    <div class="novel-card-title"><%= novel.title %></div>
+    <div class="novel-card-meta"><%= num(novel.words) %> words · <%= novel.chapterCount %> chapter<%= novel.chapterCount === 1 ? '' : 's' %></div>
+    <div class="novel-card-meta faint"><%= relativeTime(novel.updatedAt) %></div>
+  </div>
+</a>

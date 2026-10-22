@@ -1,0 +1,90 @@
+<%- include('partials/head') %>
+<main class="container page">
+  <div class="page-header">
+    <div>
+      <h1>Library</h1>
+      <p><% if (novels.length) { %><%= novels.length %> novel<%= novels.length === 1 ? '' : 's' %> · <%= num(novels.reduce((s, n) => s + n.words, 0)) %> words<% } else { %>Your novels live here.<% } %><% if (wordsToday) { %> · <strong><%= num(wordsToday) %></strong> written today<% } %></p>
+    </div>
+    <div class="toolbar">
+      <label class="search"><span class="sr-only">Search novels</span><svg class="icon"><use href="#i-search"/></svg><input class="input" type="search" placeholder="Search novels…" data-library-search></label>
+      <select class="select" data-library-sort aria-label="Sort novels" style="width:auto">
+        <option value="updated">Recently edited</option>
+        <option value="title">Title</option>
+        <option value="words">Word count</option>
+      </select>
+      <button class="btn btn-primary" type="button" data-open-dialog="new-novel"><svg class="icon"><use href="#i-plus"/></svg>New novel</button>
+    </div>
+  </div>
+
+  <section>
+    <% if (novels.length) { %>
+      <div class="novel-grid" data-sortable-grid>
+        <% novels.forEach(novel => { %><%- include('partials/novel-card', { novel }) %><% }) %>
+      </div>
+      <p class="muted" data-no-results hidden>No novels match your search.</p>
+    <% } else { %>
+      <div class="empty">
+        <svg class="icon"><use href="#i-book-open"/></svg>
+        <h3>Start your first novel</h3>
+        <p>Give it a title — you can add a cover, synopsis and chapters whenever you like.</p>
+        <button class="btn btn-primary" type="button" data-open-dialog="new-novel"><svg class="icon"><use href="#i-plus"/></svg>New novel</button>
+      </div>
+    <% } %>
+  </section>
+
+  <section class="section" id="remote-section" data-remote-configured="<%= remoteConfigured ? '1' : '0' %>">
+    <div class="section-header">
+      <h2 class="section-title"><svg class="icon"><use href="#i-phone"/></svg>LiteWriter</h2>
+      <div class="row">
+        <span class="status-pill" data-remote-status></span>
+        <% if (remoteConfigured) { %>
+          <button class="btn btn-sm" type="button" data-remote-refresh><svg class="icon"><use href="#i-refresh"/></svg>Refresh</button>
+        <% } %>
+      </div>
+    </div>
+    <% if (!remoteConfigured) { %>
+      <div class="empty">
+        <svg class="icon"><use href="#i-phone"/></svg>
+        <h3>Edit your phone's novels from here</h3>
+        <p>Start the WebDAV server in the LiteWriter app and connect it to WebWriter.</p>
+        <a class="btn" href="/settings/litewriter">Set up LiteWriter</a>
+      </div>
+    <% } else { %>
+      <div class="novel-grid" data-remote-grid>
+        <% for (let i = 0; i < 4; i++) { %>
+          <div class="novel-card" aria-hidden="true"><div class="cover skeleton"></div><div class="skeleton skeleton-line" style="width:80%"></div><div class="skeleton skeleton-line" style="width:50%"></div></div>
+        <% } %>
+      </div>
+      <div data-remote-message hidden></div>
+    <% } %>
+  </section>
+</main>
+
+<dialog class="dialog" id="new-novel">
+  <form data-new-novel>
+    <div class="dialog-header"><h2>New novel</h2><button class="icon-btn" type="button" data-close aria-label="Close"><svg class="icon"><use href="#i-x"/></svg></button></div>
+    <div class="dialog-body">
+      <div class="field">
+        <label class="label" for="nn-title">Title</label>
+        <input class="input" id="nn-title" name="title" required maxlength="200" autocomplete="off">
+      </div>
+      <div class="field">
+        <label class="label" for="nn-author">Author</label>
+        <input class="input" id="nn-author" name="author" value="<%= user.username %>" maxlength="200">
+      </div>
+      <div class="field">
+        <label class="label" for="nn-synopsis">Synopsis <span class="faint">(optional)</span></label>
+        <textarea class="textarea" id="nn-synopsis" name="synopsis" rows="4"></textarea>
+      </div>
+      <div class="field">
+        <label class="label" for="nn-cover">Cover image <span class="faint">(optional)</span></label>
+        <input class="input" id="nn-cover" name="cover" type="file" accept="image/jpeg,image/png,image/webp,image/gif">
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn" type="button" data-close>Cancel</button>
+      <button class="btn btn-primary" type="submit">Create novel</button>
+    </div>
+  </form>
+</dialog>
+<%- include('partials/foot', { scripts: ['library'] }) %>

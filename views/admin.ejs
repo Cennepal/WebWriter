@@ -1,0 +1,117 @@
+<%
+  const statusBadge = { active: 'badge-success', used: '', expired: 'badge-warning', revoked: 'badge-danger' };
+%>
+<%- include('partials/head') %>
+<main class="container page">
+  <div class="page-header">
+    <div><h1>Users</h1><p>Invite writers and manage who can use this WebWriter.</p></div>
+    <button class="btn btn-primary" type="button" data-open-dialog="invite-dialog"><svg class="icon"><use href="#i-plus"/></svg>Invite someone</button>
+  </div>
+
+  <section class="card">
+    <div class="table-wrap">
+      <table class="table">
+        <thead><tr><th>User</th><th>Novels</th><th>Words (30d)</th><th>Storage</th><th>Last sign-in</th><th class="actions"><span class="sr-only">Actions</span></th></tr></thead>
+        <tbody>
+          <% users.forEach(u => { %>
+            <tr data-user-id="<%= u.id %>" data-username="<%= u.username %>">
+              <td>
+                <div class="row" style="gap:.4rem">
+                  <strong><%= u.username %></strong>
+                  <% if (u.id === user.id) { %><span class="badge">You</span><% } %>
+                  <% if (u.role === 'admin') { %><span class="badge badge-accent">Admin</span><% } %>
+                  <% if (u.disabled) { %><span class="badge badge-danger">Disabled</span><% } %>
+                  <% if (u.must_change_password) { %><span class="badge badge-warning" title="Must choose a new password at next sign-in">Temp. password</span><% } %>
+                </div>
+                <div class="small faint">Joined <%= relativeTime(u.created_at) %></div>
+              </td>
+              <td><%= u.novels %></td>
+              <td><%= num(u.words30) %></td>
+              <td class="nowrap muted"><%= formatBytes(u.storage) %></td>
+              <td class="nowrap muted"><%= u.last_login_at ? relativeTime(u.last_login_at) : 'never' %></td>
+              <td class="actions">
+                <% if (u.id !== user.id) { %>
+                <details class="menu">
+                  <summary class="icon-btn" aria-label="Manage <%= u.username %>"><svg class="icon"><use href="#i-more"/></svg></summary>
+                  <div class="menu-panel">
+                    <% if (u.role === 'admin') { %>
+                      <button class="menu-item" type="button" data-user-action="role" data-value="user"><svg class="icon"><use href="#i-user"/></svg>Make regular user</button>
+                    <% } else { %>
+                      <button class="menu-item" type="button" data-user-action="role" data-value="admin"><svg class="icon"><use href="#i-shield"/></svg>Make administrator</button>
+                    <% } %>
+                    <button class="menu-item" type="button" data-user-action="reset"><svg class="icon"><use href="#i-rotate"/></svg>Reset password…</button>
+                    <button class="menu-item" type="button" data-user-action="disabled" data-value="<%= u.disabled ? 'false' : 'true' %>"><svg class="icon"><use href="#i-<%= u.disabled ? 'check' : 'x' %>"/></svg><%= u.disabled ? 'Enable account' : 'Disable account' %></button>
+                    <div class="menu-sep"></div>
+                    <button class="menu-item danger" type="button" data-user-action="delete"><svg class="icon"><use href="#i-trash"/></svg>Delete user…</button>
+                  </div>
+                </details>
+                <% } %>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-header"><h2 class="section-title"><svg class="icon"><use href="#i-link"/></svg>Invites</h2></div>
+    <section class="card">
+      <% if (!invites.length) { %>
+        <div class="card-body muted">No invites yet. New users can only join through an invite link.</div>
+      <% } else { %>
+        <div class="table-wrap">
+          <table class="table">
+            <thead><tr><th>Invite</th><th>Status</th><th>Uses</th><th>Expires</th><th class="actions"><span class="sr-only">Actions</span></th></tr></thead>
+            <tbody>
+              <% invites.forEach(i => { %>
+                <tr data-invite-id="<%= i.id %>">
+                  <td>
+                    <div><strong><%= i.note || 'Invite' %></strong><% if (i.role === 'admin') { %> <span class="badge badge-accent">Admin</span><% } %></div>
+                    <div class="small faint">by <%= i.created_by_name || 'deleted user' %>, <%= relativeTime(i.created_at) %><% if (i.used_by) { %> · used by <%= i.used_by %><% } %></div>
+                  </td>
+                  <td><span class="badge <%= statusBadge[i.status] %>"><%= i.status %></span></td>
+                  <td><%= i.uses %> / <%= i.max_uses %></td>
+                  <td class="nowrap muted"><%= i.expires_at ? formatDate(i.expires_at) : 'never' %></td>
+                  <td class="actions">
+                    <% if (i.status === 'active') { %><button class="btn btn-sm" type="button" data-invite-action="revoke">Revoke</button><% } else { %><button class="icon-btn danger" type="button" data-invite-action="delete" aria-label="Delete invite"><svg class="icon"><use href="#i-trash"/></svg></button><% } %>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </section>
+    <p class="hint" style="margin-top:.6rem">Invite links are shown only once, right after you create them. Lost one? Revoke it and create a new one.</p>
+  </section>
+</main>
+
+<dialog class="dialog" id="invite-dialog">
+  <form data-invite-form>
+    <div class="dialog-header"><h2>Invite someone</h2><button class="icon-btn" type="button" data-close aria-label="Close"><svg class="icon"><use href="#i-x"/></svg></button></div>
+    <div class="dialog-body">
+      <div data-invite-fields>
+        <div class="field"><label class="label" for="inv-note">Who is it for? <span class="faint">(optional)</span></label><input class="input" id="inv-note" name="note" maxlength="200" placeholder="e.g. Anna from the writing group"></div>
+        <div class="form-grid">
+          <div class="field"><label class="label" for="inv-exp">Valid for</label>
+            <select class="select" id="inv-exp" name="expiresInDays"><option value="1">1 day</option><option value="7" selected>7 days</option><option value="30">30 days</option><option value="0">No expiry</option></select>
+          </div>
+          <div class="field"><label class="label" for="inv-uses">Can be used</label>
+            <select class="select" id="inv-uses" name="maxUses"><option value="1" selected>Once</option><option value="5">5 times</option><option value="25">25 times</option></select>
+          </div>
+        </div>
+        <label class="switch"><input type="checkbox" name="admin"><span class="switch-track"></span><span class="switch-text"><strong>Make them an administrator</strong><span class="hint">Admins can invite and manage users.</span></span></label>
+      </div>
+      <div data-invite-result hidden>
+        <div class="alert alert-success"><svg class="icon"><use href="#i-check"/></svg><div>Invite created. Send this link — it won't be shown again.</div></div>
+        <div class="input-group"><input class="input mono" readonly data-invite-link><button class="btn" type="button" data-copy-invite><svg class="icon"><use href="#i-copy"/></svg>Copy</button></div>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn" type="button" data-close>Close</button>
+      <button class="btn btn-primary" type="submit" data-invite-submit>Create invite link</button>
+    </div>
+  </form>
+</dialog>
+<%- include('partials/foot', { scripts: ['admin'] }) %>

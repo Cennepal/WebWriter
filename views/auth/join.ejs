@@ -1,0 +1,35 @@
+<%- include('../partials/head', { bare: true }) %>
+<main class="auth">
+  <div class="card auth-card">
+    <div class="card-body">
+      <%- include('../partials/auth-brand') %>
+      <% if (!invite) { %>
+        <h1>Invite not valid</h1>
+        <p class="lead">This invite link has expired, was already used or was revoked. Ask whoever sent it for a new one.</p>
+        <a class="btn btn-block" href="/login">Go to sign in</a>
+      <% } else { %>
+        <h1>You're invited</h1>
+        <p class="lead">Create your account to start writing<%= invite.role === 'admin' ? ' (as an administrator)' : '' %>.</p>
+        <form method="post" action="/join/<%= encodeURIComponent(token) %>" data-tz-form>
+          <input type="hidden" name="_csrf" value="<%= csrfToken() %>">
+          <input type="hidden" name="tz" value="">
+          <div class="field">
+            <label class="label" for="username">Username</label>
+            <input class="input" id="username" name="username" value="<%= username %>" autocomplete="username" autocapitalize="none" pattern="[a-zA-Z0-9._\-]{3,32}" required autofocus>
+            <span class="hint">3–32 characters: letters, numbers, dots, dashes, underscores.</span>
+          </div>
+          <div class="field">
+            <label class="label" for="password">Password</label>
+            <input class="input" id="password" name="password" type="password" autocomplete="new-password" minlength="8" required>
+          </div>
+          <div class="field">
+            <label class="label" for="confirm">Confirm password</label>
+            <input class="input" id="confirm" name="confirm" type="password" autocomplete="new-password" minlength="8" required>
+          </div>
+          <button class="btn btn-primary btn-lg btn-block" type="submit">Create account</button>
+        </form>
+      <% } %>
+    </div>
+  </div>
+</main>
+<%- include('../partials/foot') %>

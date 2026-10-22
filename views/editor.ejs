@@ -1,101 +1,91 @@
-<!DOCTYPE html>
-<html lang="en" data-theme="<%= theme %>">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title><%= chapter %> - <%= novel.title %> - WebWriter</title>
-  <link rel="stylesheet" href="/css/style.css">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@300;400&family=Source+Serif+4:wght@300;400&display=swap" rel="stylesheet">
-  
-  <% 
-    const bgSettings = typeof backgroundSettings !== 'undefined' ? backgroundSettings : { enabled: false, url: '', opacity: 0.3, editorEnabled: false };
-    const isEnabled = bgSettings.enabled === true || bgSettings.enabled === 1;
-    const hasUrl = bgSettings.url && bgSettings.url.length > 0;
-    const editorEnabled = bgSettings.editorEnabled === true || bgSettings.editorEnabled === 1;
-    const shouldShowBg = isEnabled && hasUrl && editorEnabled;
-  %>
-  
-  <style>
-    <% if (shouldShowBg) { %>
-    /* Custom background enabled */
-    body {
-      background-image: url('<%= bgSettings.url %>') !important;
-      background-size: cover !important;
-      background-position: center !important;
-      background-repeat: no-repeat !important;
-      background-attachment: fixed !important;
-      background-color: transparent !important;
-    }
-    body::before {
-      content: '';
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-color: var(--bg-primary);
-      opacity: <%= 1 - parseFloat(bgSettings.opacity) %>;
-      pointer-events: none;
-      z-index: -1;
-    }
-    .editor-container {
-      background-color: transparent !important;
-    }
-    <% } else { %>
-    /* No custom background - use theme background */
-    body {
-      background-color: var(--bg-primary) !important;
-      background-image: none !important;
-    }
-    .editor-container {
-      background-color: var(--bg-primary) !important;
-    }
-    <% } %>
-  </style>
-</head>
-<body>
-  <div class="editor-container">
-    <div class="editor-header">
-      <div class="editor-title">
-        <a href="/novels/<%= novel.id %><%= isRemote ? '?remote=1' : '' %>" style="color: var(--text-secondary); text-decoration: none;">← <%= novel.title %></a>
-        <span style="margin: 0 0.5rem; color: var(--border);">/</span>
-        <span><%= book %></span>
-        <span style="margin: 0 0.5rem; color: var(--border);">/</span>
-        <span><%= chapter %></span>
-        <% if (isRemote) { %>
-          <span class="remote-badge" style="margin-left: 1rem; font-size: 0.75rem;">Remote</span>
-        <% } %>
-      </div>
-      <div class="editor-status">
-        <div class="save-indicator" title="Saved"></div>
-        <span id="saveStatus">Saved</span>
-      </div>
+<%
+  const novelUrl = `/novels/${source}/${encodeURIComponent(novel.id)}`;
+  const ed = prefs.editor;
+%>
+<%- include('partials/head', { bare: true, editor: true, bodyClass: 'editor-page' }) %>
+<div style="--ed-font: <%= ed.fontStack %>; --ed-size: <%= ed.size %>px; --ed-width: <%= ed.width %>; --ed-lh: <%= ed.lineHeight %>" data-editor-root>
+  <header class="ed-top" data-ed-top>
+    <button class="icon-btn" type="button" data-drawer-open title="Chapters (Ctrl+Shift+O)" aria-label="Show chapters"><svg class="icon"><use href="#i-list"/></svg></button>
+    <nav class="ed-crumbs" aria-label="Breadcrumb">
+      <a href="<%= novelUrl %>" title="Back to novel"><svg class="icon"><use href="#i-chevron-left"/></svg><span class="novel-title"><%= novel.title %></span></a>
+      <% if (book !== 'Main') { %><span class="sep">/</span><span class="book-name"><%= book %></span><% } %>
+      <span class="sep">/</span><span class="current"><%= chapter %></span>
+      <% if (source === 'remote') { %><span class="badge badge-accent" title="Saved directly to your LiteWriter device"><svg class="icon"><use href="#i-phone"/></svg><span class="book-name">Device</span></span><% } %>
+    </nav>
+    <div class="ed-actions">
+      <span class="ed-status" data-status role="status"><span class="dot"></span><span data-status-text>Saved</span></span>
+      <button class="icon-btn" type="button" data-typo-toggle title="Typography" aria-label="Typography settings"><svg class="icon"><use href="#i-type"/></svg></button>
+      <button class="icon-btn" type="button" data-focus-toggle title="Focus mode (Ctrl+Shift+F)" aria-label="Focus mode"><svg class="icon"><use href="#i-eye"/></svg></button>
+      <button class="icon-btn" type="button" data-fullscreen title="Full screen" aria-label="Full screen"><svg class="icon"><use href="#i-maximize"/></svg></button>
     </div>
-    
-    <div class="editor-toolbar" id="editorToolbar">
-      <button type="button" class="toolbar-btn" id="boldBtn" title="Bold (Ctrl+B)">B</button>
-      <button type="button" class="toolbar-btn" id="italicBtn" title="Italic (Ctrl+I)"><i>I</i></button>
-      <button type="button" class="toolbar-btn" id="headingBtn" title="Heading">H</button>
-      <button type="button" class="toolbar-btn" id="linkBtn" title="Link">🔗</button>
-      <button type="button" class="toolbar-btn" id="quoteBtn" title="Quote">"</button>
-      <button type="button" class="toolbar-btn" id="listBtn" title="List">•</button>
-      <span style="margin: 0 0.5rem; color: var(--border);">|</span>
-      <button type="button" class="toolbar-btn" id="zoomOutBtn" title="Zoom Out (Ctrl+-)">A-</button>
-      <button type="button" class="toolbar-btn" id="zoomResetBtn" title="Reset Zoom (Ctrl+0)">A</button>
-      <button type="button" class="toolbar-btn" id="zoomInBtn" title="Zoom In (Ctrl++)">A+</button>
-      <span style="margin: 0 0.5rem; color: var(--border);">|</span>
-      <button type="button" class="toolbar-btn" id="toggleToolbarBtn" title="Hide Toolbar (Ctrl+H)">Hide (Ctrl+H)</button>
-    </div>
-    
-    <textarea id="editorTextarea" class="editor-textarea" placeholder="Start writing your story..." spellcheck="true"><%= content %></textarea>
+  </header>
+
+  <div class="ed-toolbar" data-ed-toolbar role="toolbar" aria-label="Formatting">
+    <button class="icon-btn" type="button" data-md="bold" title="Bold (Ctrl+B)"><b>B</b></button>
+    <button class="icon-btn" type="button" data-md="italic" title="Italic (Ctrl+I)"><i style="font-family:serif">I</i></button>
+    <button class="icon-btn" type="button" data-md="heading" title="Heading">H</button>
+    <button class="icon-btn" type="button" data-md="quote" title="Quote">“</button>
+    <button class="icon-btn" type="button" data-md="break" title="Scene break">⁂</button>
   </div>
-  
-  <script>
-    window.isRemote = <%= isRemote ? 'true' : 'false' %>;
-  </script>
-  <script src="/js/main.js"></script>
-  <script src="/js/editor.js"></script>
-</body>
-</html>
+
+  <main class="ed-main">
+    <div class="ed-paper">
+      <h1 class="ed-chapter-title"><%= chapter %></h1>
+      <label class="sr-only" for="ed-text">Chapter text</label>
+      <textarea class="ed-text" id="ed-text" data-text spellcheck="<%= ed.spellcheck ? 'true' : 'false' %>" placeholder="Start writing…" autocomplete="off" autocapitalize="sentences"><%= content %></textarea>
+    </div>
+  </main>
+
+  <footer class="ed-footer" data-ed-footer>
+    <div class="row" style="gap:1rem">
+      <span><strong data-words>0</strong> words</span>
+      <span class="faint" data-session-words title="Words added in this session"></span>
+      <span class="goal" data-goal hidden title="Daily goal"><svg class="icon"><use href="#i-target"/></svg><span class="progress"><span data-goal-bar></span></span><span data-goal-text></span></span>
+    </div>
+    <div class="ed-nav">
+      <a class="btn btn-ghost btn-sm" data-prev hidden><svg class="icon"><use href="#i-chevron-left"/></svg><span data-label></span></a>
+      <a class="btn btn-ghost btn-sm" data-next hidden><span data-label></span><svg class="icon"><use href="#i-chevron-right"/></svg></a>
+    </div>
+  </footer>
+
+  <div class="popover" data-typo hidden>
+    <div class="field">
+      <span class="label small">Font</span>
+      <div class="seg" data-font-seg>
+        <% Object.entries(EDITOR_FONTS).forEach(([key, f]) => { %><button type="button" data-font="<%= key %>" class="<%= ed.font === key ? 'active' : '' %>"><%= f.label %></button><% }) %>
+      </div>
+    </div>
+    <div class="field"><label class="label small" for="ed-size">Text size <span class="faint" data-size-val><%= ed.size %>px</span></label><input type="range" id="ed-size" min="12" max="32" step="1" value="<%= ed.size %>" data-size></div>
+    <div class="field"><label class="label small" for="ed-width">Line length <span class="faint" data-width-val><%= ed.width %></span></label><input type="range" id="ed-width" min="28" max="80" step="1" value="<%= ed.width %>" data-width></div>
+    <div class="field"><label class="label small" for="ed-lh">Line spacing <span class="faint" data-lh-val><%= ed.lineHeight %></span></label><input type="range" id="ed-lh" min="1.2" max="2.4" step="0.05" value="<%= ed.lineHeight %>" data-lh></div>
+    <label class="switch" style="margin:0"><input type="checkbox" data-typewriter <%= ed.typewriter ? 'checked' : '' %>><span class="switch-track"></span><span class="switch-text"><strong>Typewriter scrolling</strong><span class="hint">Keep the current line centred.</span></span></label>
+  </div>
+</div>
+
+<div class="drawer-backdrop" data-drawer-backdrop></div>
+<aside class="drawer" data-drawer aria-label="Chapters">
+  <div class="drawer-header">
+    <strong><%= novel.title %></strong>
+    <button class="icon-btn" type="button" data-drawer-close aria-label="Close"><svg class="icon"><use href="#i-x"/></svg></button>
+  </div>
+  <div data-drawer-list><p class="muted small" style="padding:1rem"><span class="spinner"></span> Loading chapters…</p></div>
+</aside>
+
+<dialog class="dialog dialog-wide" id="conflict-dialog">
+  <form method="dialog">
+    <div class="dialog-header"><h2>This chapter changed elsewhere</h2></div>
+    <div class="dialog-body">
+      <p><%= source === 'remote' ? 'Someone (probably you, on your phone) edited this chapter in LiteWriter after you opened it here.' : 'This chapter was saved from another tab or device after you opened it here.' %> What should happen?</p>
+      <p class="hint">Your text from this page is kept as a draft in this browser either way.</p>
+      <details style="margin-top:.75rem"><summary class="small">Show the other version</summary><div class="diff-view" data-theirs></div></details>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn" value="cancel">Decide later</button>
+      <button class="btn" value="theirs">Load the other version</button>
+      <button class="btn btn-primary" value="mine">Keep my version</button>
+    </div>
+  </form>
+</dialog>
+
+<script type="application/json" id="page-data"><%- json({ source, id: novel.id, book, chapter, version, novelTitle: novel.title, dailyGoal: prefs.dailyGoal, wordsToday, typewriter: ed.typewriter }) %></script>
+<%- include('partials/foot', { scripts: ['editor'] }) %>

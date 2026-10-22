@@ -1,0 +1,22 @@
+<dialog class="dialog" id="confirm-dialog">
+  <form method="dialog">
+    <div class="dialog-header"><h2 data-title>Are you sure?</h2></div>
+    <div class="dialog-body">
+      <p data-message></p>
+      <div class="field" data-input-wrap hidden>
+        <label class="label" data-input-label for="confirm-input"></label>
+        <input class="input" id="confirm-input" data-input autocomplete="off">
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn" value="cancel" type="submit" data-cancel>Cancel</button>
+      <button class="btn btn-primary" value="ok" type="submit" data-ok>OK</button>
+    </div>
+  </form>
+</dialog>
+<script src="/js/app.js?v=<%= appVersion %>"></script>
+<% (typeof scripts !== 'undefined' ? scripts : []).forEach(s => { %>
+<script src="/js/<%= s %>.js?v=<%= appVersion %>"></script>
+<% }) %>
+</body>
+</html>

@@ -1,0 +1,10 @@
+<div class="cover">
+  <% if (novel.coverUrl) { %>
+    <img src="<%= novel.coverUrl %>" alt="" loading="lazy">
+  <% } else { %>
+    <div class="cover-placeholder" style="--hue: <%= hue(novel.title) %>">
+      <span class="cover-title"><%= novel.title %></span>
+      <span class="cover-rule"></span>
+    </div>
+  <% } %>
+</div>
