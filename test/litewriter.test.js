@@ -28,6 +28,7 @@ before(async () => {
     '/My_Great_Novel/Chapter 2.txt': 'Two words.',
     '/My_Great_Novel/Book Two/Chapter 3.md': 'Three is a magic number.',
     '/Second/Intro.md': 'Intro acts as the synopsis.',
+    '/Second/Part: One/Chapter 5: Storm?.md': 'Rain and more rain.',
     '/Second/Notes.md': 'Some notes here.',
     '/.hidden/ignored.md': 'ignored'
   });
@@ -76,7 +77,7 @@ test('remote novels are recognized like LiteWriter stores them', async () => {
   assert.ok(n.coverUrl.startsWith('/covers/remote/My_Great_Novel'));
 
   assert.equal(novels.Second.synopsis, 'Intro acts as the synopsis.');
-  assert.equal(novels.Second.chapterCount, 1);
+  assert.equal(novels.Second.chapterCount, 2);
 
   const detail = await api('get', '/api/novels/remote/My_Great_Novel');
   const [main, two] = detail.body.books;
@@ -123,6 +124,26 @@ test('changes made on the phone are not overwritten silently', async () => {
   assert.equal(forced.status, 200);
 });
 
+test('device files with : and ? in their names can be opened, saved and added to', async () => {
+  const detail = await api('get', '/api/novels/remote/Second');
+  const book = detail.body.books.find(b => b.name === 'Part: One');
+  assert.deepEqual(book.chapters.map(c => c.name), ['Chapter 5: Storm?']);
+
+  const url = `/api/chapters/remote/Second/${encodeURIComponent('Part: One')}/${encodeURIComponent('Chapter 5: Storm?')}`;
+  const read = await api('get', url);
+  assert.equal(read.status, 200);
+  assert.equal(read.body.content, 'Rain and more rain.');
+  assert.equal((await api('put', url).send({ content: 'Sunshine.', baseVersion: read.body.version })).status, 200);
+  assert.equal(await device.client.getFileContents('/Second/Part: One/Chapter 5: Storm?.md', { format: 'text' }), 'Sunshine.');
+
+  const editor = await agent.get(`/write/remote/Second/${encodeURIComponent('Part: One')}/${encodeURIComponent('Chapter 5: Storm?')}`);
+  assert.equal(editor.status, 200);
+
+  const created = await api('post', `/api/novels/remote/Second/books/${encodeURIComponent('Part: One')}/chapters`).send({ name: 'Chapter 6: Why?' });
+  assert.equal(created.status, 201);
+  assert.equal(await device.client.exists('/Second/Part: One/Chapter 6: Why?.md'), true, 'plain name used when the device accepts it');
+});
+
 test('new chapters can be created on the device', async () => {
   const res = await api('post', '/api/novels/remote/My_Great_Novel/books/Book%20Two/chapters').send({ name: 'Chapter 4' });
   assert.equal(res.status, 201);
@@ -154,6 +175,9 @@ test('export and copy a remote novel', async () => {
   assert.ok(local.body.novel.hasCover);
   assert.deepEqual(local.body.books.map(b => b.name), ['Main', 'Book Two']);
   assert.equal(local.body.novel.chapterCount, 5);
+  const second = await api('post', '/api/novels/remote/Second/copy').send({});
+  const copied = await api('get', `/api/novels/local/${second.body.id}`);
+  assert.ok(copied.body.books.some(b => b.name === 'Part: One' && b.chapters.some(c => c.name === 'Chapter 6: Why?')));
 });
 
 test('backups can include a snapshot of the device', async () => {
