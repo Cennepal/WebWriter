@@ -1,0 +1,193 @@
+<%
+  const base = `/novels/${source}/${encodeURIComponent(novel.id)}`;
+  const writeUrl = (b, c) => `/write/${source}/${encodeURIComponent(novel.id)}/${encodeURIComponent(b)}/${encodeURIComponent(c)}`;
+  const allChapters = books.flatMap(b => b.chapters.filter(c => !c.isSynopsis).map(c => ({ book: b.name, chapter: c.name })));
+  const last = novel.lastChapter && books.some(b => b.name === novel.lastChapter.book && b.chapters.some(c => c.name === novel.lastChapter.chapter)) ? novel.lastChapter : allChapters[allChapters.length - 1];
+  const bookLabel = b => b.isMain ? (books.length > 1 ? 'Main' : 'Chapters') : b.name;
+%>
+<%- include('partials/head') %>
+<main class="container page">
+  <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/library">Library</a><svg class="icon"><use href="#i-chevron-right"/></svg><span><%= source === 'remote' ? 'LiteWriter' : 'Local' %></span></nav>
+
+  <section class="novel-hero">
+    <%- include('partials/cover', { novel }) %>
+    <div>
+      <div class="row" style="margin-bottom:.4rem">
+        <% if (source === 'remote') { %><span class="badge badge-accent"><svg class="icon"><use href="#i-phone"/></svg>On your device</span><% } %>
+      </div>
+      <h1><%= novel.title %></h1>
+      <% if (novel.author) { %><p class="byline">by <%= novel.author %></p><% } %>
+      <div class="stat-strip" style="margin-top:1.1rem">
+        <div><div class="stat-value"><%= num(novel.words) %></div><div class="stat-label">words</div></div>
+        <div><div class="stat-value"><%= novel.chapterCount %></div><div class="stat-label">chapter<%= novel.chapterCount === 1 ? '' : 's' %></div></div>
+        <div><div class="stat-value"><%= books.length %></div><div class="stat-label">book<%= books.length === 1 ? '' : 's' %></div></div>
+        <div><div class="stat-value small" style="font-size:1rem;padding-top:.3rem"><%= relativeTime(novel.updatedAt) %></div><div class="stat-label">last edited</div></div>
+      </div>
+      <% if (novel.synopsis && novel.synopsis.trim()) { %>
+        <div class="synopsis clamped" data-synopsis><%= novel.synopsis.trim() %></div>
+        <button class="btn btn-ghost btn-sm" type="button" data-synopsis-toggle hidden>Show more</button>
+      <% } else if (canEdit) { %>
+        <p class="muted" style="margin-top:1rem"><a href="#" data-open-dialog="edit-novel">Add a synopsis</a></p>
+      <% } %>
+      <div class="actions">
+        <% if (last) { %>
+          <a class="btn btn-primary" href="<%= writeUrl(last.book, last.chapter) %>"><svg class="icon"><use href="#i-pen"/></svg><%= novel.lastChapter ? 'Continue writing' : 'Open latest chapter' %></a>
+        <% } %>
+        <button class="btn" type="button" data-open-dialog="export-dialog"><svg class="icon"><use href="#i-download"/></svg>Export</button>
+        <% if (canEdit) { %>
+          <button class="btn" type="button" data-open-dialog="edit-novel"><svg class="icon"><use href="#i-pencil"/></svg>Edit details</button>
+        <% } %>
+        <details class="menu">
+          <summary class="btn" aria-label="More actions"><svg class="icon"><use href="#i-more"/></svg></summary>
+          <div class="menu-panel left">
+            <% if (source === 'remote') { %>
+              <a class="menu-item" href="<%= base %>"><svg class="icon"><use href="#i-refresh"/></svg>Reload from device</a>
+              <button class="menu-item" type="button" data-action="copy"><svg class="icon"><use href="#i-copy"/></svg>Copy to my library</button>
+            <% } else { %>
+              <button class="menu-item" type="button" data-action="copy"><svg class="icon"><use href="#i-copy"/></svg>Duplicate novel</button>
+              <div class="menu-sep"></div>
+              <button class="menu-item danger" type="button" data-action="delete-novel"><svg class="icon"><use href="#i-trash"/></svg>Delete novel…</button>
+            <% } %>
+          </div>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <% books.forEach(book => { %>
+    <section class="card book" data-book="<%= book.name %>">
+      <div class="book-header">
+        <svg class="icon muted"><use href="#i-book"/></svg>
+        <div class="grow">
+          <h2><%= bookLabel(book) %></h2>
+          <div class="meta"><%= book.chapters.filter(c => !c.isSynopsis).length %> chapters · <%= num(book.words) %> words</div>
+        </div>
+        <button class="btn btn-sm" type="button" data-action="new-chapter" data-book="<%= book.name %>"><svg class="icon"><use href="#i-plus"/></svg><span>Chapter</span></button>
+        <details class="menu">
+          <summary class="icon-btn" aria-label="Book actions"><svg class="icon"><use href="#i-more"/></svg></summary>
+          <div class="menu-panel">
+            <a class="menu-item" href="#" data-action="export-book" data-book="<%= book.name %>"><svg class="icon"><use href="#i-download"/></svg>Export this book</a>
+            <% if (canEdit && !book.isMain) { %>
+              <button class="menu-item" type="button" data-action="rename-book" data-book="<%= book.name %>"><svg class="icon"><use href="#i-pencil"/></svg>Rename book</button>
+              <div class="menu-sep"></div>
+              <button class="menu-item danger" type="button" data-action="delete-book" data-book="<%= book.name %>"><svg class="icon"><use href="#i-trash"/></svg>Delete book…</button>
+            <% } %>
+          </div>
+        </details>
+      </div>
+      <ul class="chapter-list" data-chapter-list data-book="<%= book.name %>">
+        <% book.chapters.forEach(ch => { %>
+          <li class="chapter<%= ch.isSynopsis ? ' synopsis' : '' %>" data-chapter="<%= ch.name %>" <% if (canEdit && !ch.isSynopsis) { %>draggable="true"<% } %>>
+            <% if (canEdit) { %><span class="grip" title="Drag to reorder"><% if (!ch.isSynopsis) { %><svg class="icon"><use href="#i-grip"/></svg><% } %></span><% } %>
+            <a class="chapter-link" href="<%= writeUrl(book.name, ch.name) %>">
+              <span class="chapter-name"><%= ch.name %></span>
+              <span class="chapter-meta"><%= num(ch.words) %> words<% if (ch.updatedAt) { %><span class="when"> · <%= relativeTime(ch.updatedAt) %></span><% } %></span>
+            </a>
+            <details class="menu">
+              <summary class="icon-btn" aria-label="Chapter actions"><svg class="icon"><use href="#i-more"/></svg></summary>
+              <div class="menu-panel">
+                <a class="menu-item" href="<%= writeUrl(book.name, ch.name) %>"><svg class="icon"><use href="#i-pen"/></svg>Open</a>
+                <% if (!ch.isSynopsis) { %>
+                  <a class="menu-item" href="/export/<%= source %>/<%= encodeURIComponent(novel.id) %>?format=docx&book=<%= encodeURIComponent(book.name) %>&chapter=<%= encodeURIComponent(ch.name) %>"><svg class="icon"><use href="#i-download"/></svg>Export as Word</a>
+                  <a class="menu-item" href="/export/<%= source %>/<%= encodeURIComponent(novel.id) %>?format=md&book=<%= encodeURIComponent(book.name) %>&chapter=<%= encodeURIComponent(ch.name) %>"><svg class="icon"><use href="#i-download"/></svg>Export as Markdown</a>
+                <% } %>
+                <% if (canEdit && !ch.isSynopsis) { %>
+                  <div class="menu-sep"></div>
+                  <button class="menu-item" type="button" data-action="rename-chapter" data-book="<%= book.name %>" data-chapter="<%= ch.name %>"><svg class="icon"><use href="#i-pencil"/></svg>Rename</button>
+                  <button class="menu-item" type="button" data-action="move-up" data-book="<%= book.name %>" data-chapter="<%= ch.name %>"><svg class="icon"><use href="#i-arrow-up"/></svg>Move up</button>
+                  <button class="menu-item" type="button" data-action="move-down" data-book="<%= book.name %>" data-chapter="<%= ch.name %>"><svg class="icon"><use href="#i-arrow-down"/></svg>Move down</button>
+                  <% if (books.length > 1) { %>
+                    <button class="menu-item" type="button" data-action="move-book" data-book="<%= book.name %>" data-chapter="<%= ch.name %>"><svg class="icon"><use href="#i-folder"/></svg>Move to another book…</button>
+                  <% } %>
+                  <div class="menu-sep"></div>
+                  <button class="menu-item danger" type="button" data-action="delete-chapter" data-book="<%= book.name %>" data-chapter="<%= ch.name %>"><svg class="icon"><use href="#i-trash"/></svg>Delete…</button>
+                <% } %>
+              </div>
+            </details>
+          </li>
+        <% }) %>
+        <% if (!book.chapters.length) { %><li class="chapter-empty">No chapters yet.</li><% } %>
+      </ul>
+    </section>
+  <% }) %>
+
+  <% if (canEdit) { %>
+    <button class="btn" type="button" data-action="new-book"><svg class="icon"><use href="#i-plus"/></svg>Add a book</button>
+    <p class="hint" style="margin-top:.6rem">Books group chapters into parts or volumes. Drag chapters to reorder them.</p>
+  <% } else { %>
+    <p class="hint">Chapters are listed in file-name order, just like LiteWriter stores them. To reorganise, rename or delete chapters, use the app or copy the novel to your library.</p>
+  <% } %>
+</main>
+
+<dialog class="dialog" id="export-dialog">
+  <form data-export-form>
+    <div class="dialog-header"><h2>Export</h2><button class="icon-btn" type="button" data-close aria-label="Close"><svg class="icon"><use href="#i-x"/></svg></button></div>
+    <div class="dialog-body">
+      <div class="field">
+        <span class="label">Format</span>
+        <div class="choice-grid">
+          <% Object.entries(formats).forEach(([key, f], i) => { %>
+            <label class="choice"><input type="radio" name="format" value="<%= key %>" <%= i === 0 ? 'checked' : '' %>><span><%= f.label %></span></label>
+          <% }) %>
+        </div>
+      </div>
+      <div class="field">
+        <label class="label" for="export-book">What to export</label>
+        <select class="select" id="export-book" name="book">
+          <option value="">The whole novel</option>
+          <% books.forEach(b => { %><option value="<%= b.name %>">Only “<%= bookLabel(b) %>”</option><% }) %>
+        </select>
+      </div>
+      <label class="switch"><input type="checkbox" name="titles" checked><span class="switch-track"></span><span class="switch-text"><strong>Chapter titles</strong><span class="hint">Use chapter names as headings (unless the chapter already starts with one).</span></span></label>
+      <label class="switch"><input type="checkbox" name="synopsis"><span class="switch-track"></span><span class="switch-text"><strong>Include synopsis</strong><span class="hint">Add the synopsis after the title page.</span></span></label>
+      <p class="hint">Tip: “Web page” opens nicely in any browser — use Print → Save as PDF for a PDF with page breaks.</p>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn" type="button" data-close>Cancel</button>
+      <button class="btn btn-primary" type="submit"><svg class="icon"><use href="#i-download"/></svg>Download</button>
+    </div>
+  </form>
+</dialog>
+
+<% if (canEdit) { %>
+<dialog class="dialog" id="edit-novel">
+  <form data-edit-novel>
+    <div class="dialog-header"><h2>Edit details</h2><button class="icon-btn" type="button" data-close aria-label="Close"><svg class="icon"><use href="#i-x"/></svg></button></div>
+    <div class="dialog-body">
+      <div class="field">
+        <label class="label" for="en-title">Title</label>
+        <input class="input" id="en-title" name="title" value="<%= novel.title %>" required maxlength="200">
+      </div>
+      <div class="form-grid">
+        <div class="field">
+          <label class="label" for="en-author">Author</label>
+          <input class="input" id="en-author" name="author" value="<%= novel.author %>" maxlength="200">
+        </div>
+        <div class="field">
+          <label class="label" for="en-language">Language</label>
+          <input class="input" id="en-language" name="language" value="<%= novel.language %>" maxlength="12" placeholder="en">
+          <span class="hint">Used for e-book exports, e.g. en, de, fr.</span>
+        </div>
+      </div>
+      <div class="field">
+        <label class="label" for="en-synopsis">Synopsis</label>
+        <textarea class="textarea" id="en-synopsis" name="synopsis" rows="6"><%= novel.synopsis %></textarea>
+      </div>
+      <div class="field">
+        <label class="label" for="en-cover">Cover image</label>
+        <div class="row">
+          <input class="input grow" id="en-cover" name="cover" type="file" accept="image/jpeg,image/png,image/webp,image/gif">
+          <% if (novel.hasCover) { %><button class="btn btn-danger btn-sm" type="button" data-action="remove-cover">Remove cover</button><% } %>
+        </div>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn" type="button" data-close>Cancel</button>
+      <button class="btn btn-primary" type="submit">Save</button>
+    </div>
+  </form>
+</dialog>
+<% } %>
+
+<script type="application/json" id="page-data"><%- json({ source, id: novel.id, title: novel.title, canEdit, books: books.map(b => ({ name: b.name, label: bookLabel(b), chapters: b.chapters.filter(c => !c.isSynopsis).map(c => c.name) })) }) %></script>
+<%- include('partials/foot', { scripts: ['novel'] }) %>

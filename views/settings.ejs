@@ -1,454 +1,180 @@
-<!DOCTYPE html>
-<html lang="en" data-theme="<%= theme %>">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Settings - WebWriter</title>
-  <link rel="stylesheet" href="/css/style.css">
-  
-  <% 
-    const bgSettings = typeof backgroundSettings !== 'undefined' ? backgroundSettings : { enabled: false, url: '', opacity: 0.3, editorEnabled: false };
-    const shouldShowBg = bgSettings.enabled && bgSettings.url;
-  %>
-  
-  <% if (shouldShowBg) { %>
-  <style>
-    body {
-      background-image: url('<%= bgSettings.url %>') !important;
-      background-size: cover !important;
-      background-position: center !important;
-      background-repeat: no-repeat !important;
-      background-attachment: fixed !important;
-    }
-    body::before {
-      content: '';
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-color: var(--bg-primary);
-      opacity: <%= 1 - parseFloat(bgSettings.opacity) %>;
-      pointer-events: none;
-      z-index: -1;
-    }
-  </style>
-  <% } %>
-</head>
-<body>
-  <% if (user) { %>
-  <nav class="navbar">
-    <div class="nav-content">
-      <a href="/novels" class="nav-brand">WebWriter</a>
-      <ul class="nav-links">
-        <li><a href="/novels">Novels</a></li>
-        <li><a href="/analytics">Analytics</a></li>
-        <li><a href="/backups">Backups</a></li>
-        <li><a href="/settings">Settings</a></li>
-        <li><button id="themeToggle" class="theme-toggle">🌓</button></li>
-        <li><a href="/auth/logout">Logout</a></li>
+<%
+  const tabs = [
+    { id: 'account', label: 'Account', icon: 'user' },
+    { id: 'appearance', label: 'Appearance', icon: 'sun' },
+    { id: 'writing', label: 'Writing', icon: 'pen' },
+    { id: 'litewriter', label: 'LiteWriter', icon: 'phone' }
+  ];
+%>
+<%- include('partials/head') %>
+<main class="container page">
+  <div class="page-header"><div><h1>Settings</h1><p>Everything here only affects your own account.</p></div></div>
+  <div class="layout-side">
+    <nav class="side-nav" aria-label="Settings sections">
+      <% tabs.forEach(t => { %><a href="/settings/<%= t.id %>" <%- tab === t.id ? 'aria-current="page"' : '' %>><svg class="icon"><use href="#i-<%= t.icon %>"/></svg><%= t.label %></a><% }) %>
+    </nav>
+    <div>
+
+<% if (tab === 'account') { %>
+  <section class="card">
+    <div class="card-header"><h2>Profile</h2></div>
+    <div class="card-body">
+      <div class="row-between">
+        <div><div class="label">Username</div><div class="muted"><%= user.username %></div></div>
+        <span class="badge <%= user.isAdmin ? 'badge-accent' : '' %>"><%= user.isAdmin ? 'Administrator' : 'Writer' %></span>
+      </div>
+    </div>
+  </section>
+
+  <form class="card" data-settings-form action="/settings/account/password" data-reset>
+    <div class="card-header"><h2>Change password</h2></div>
+    <div class="card-body">
+      <div class="field"><label class="label" for="pw-current">Current password</label><input class="input" id="pw-current" name="current" type="password" autocomplete="current-password" required></div>
+      <div class="form-grid">
+        <div class="field"><label class="label" for="pw-new">New password</label><input class="input" id="pw-new" name="password" type="password" autocomplete="new-password" minlength="8" required></div>
+        <div class="field"><label class="label" for="pw-confirm">Confirm new password</label><input class="input" id="pw-confirm" name="confirm" type="password" autocomplete="new-password" minlength="8" required></div>
+      </div>
+      <p class="hint">Changing your password signs you out everywhere else.</p>
+    </div>
+    <div class="card-footer"><button class="btn btn-primary" type="submit">Change password</button></div>
+  </form>
+
+  <form class="card" data-settings-form action="/settings/account/timezone">
+    <div class="card-header"><h2>Time zone</h2></div>
+    <div class="card-body">
+      <div class="field">
+        <label class="label" for="tz">Your time zone</label>
+        <select class="select" id="tz" name="timezone" data-tz-select>
+          <option value="">Server default</option>
+          <% timezones.forEach(z => { %><option value="<%= z %>" <%= s.timezone === z ? 'selected' : '' %>><%= z.replace(/_/g, ' ') %></option><% }) %>
+        </select>
+        <span class="hint">Decides when your writing day starts for statistics and daily goals.</span>
+      </div>
+    </div>
+    <div class="card-footer"><button class="btn" type="button" data-detect-tz>Detect</button><button class="btn btn-primary" type="submit">Save</button></div>
+  </form>
+
+  <section class="card">
+    <div class="card-header"><h2>Sessions</h2></div>
+    <div class="card-body row-between">
+      <p class="muted" style="margin:0">Lost a device or used a shared computer? Sign out everywhere except here.</p>
+      <button class="btn" type="button" data-post="/settings/account/signout-others">Sign out other devices</button>
+    </div>
+  </section>
+<% } %>
+
+<% if (tab === 'appearance') { %>
+  <form class="card" data-settings-form action="/settings/appearance" enctype="multipart/form-data">
+    <div class="card-header"><h2>Theme</h2></div>
+    <div class="card-body">
+      <div class="field">
+        <span class="label">Colour scheme</span>
+        <div class="choice-grid">
+          <% [['system','System','monitor'],['light','Light','sun'],['dark','Dark','moon']].forEach(([v,l,i]) => { %>
+            <label class="choice"><input type="radio" name="theme" value="<%= v %>" <%= prefs.theme === v ? 'checked' : '' %>><span><svg class="icon"><use href="#i-<%= i %>"/></svg><%= l %></span></label>
+          <% }) %>
+        </div>
+      </div>
+      <div class="field">
+        <span class="label">Accent colour</span>
+        <div class="choice-grid">
+          <% Object.entries(accents).forEach(([k, a]) => { %>
+            <label class="choice"><input type="radio" name="accent" value="<%= k %>" <%= prefs.accent === k ? 'checked' : '' %>><span><span class="swatch" style="background:<%= a.color %>"></span><%= a.label %></span></label>
+          <% }) %>
+        </div>
+      </div>
+    </div>
+    <div class="card-header" style="border-top:1px solid var(--border)"><h2>Background image</h2></div>
+    <div class="card-body">
+      <label class="switch"><input type="checkbox" name="background_enabled" <%= s.background_enabled ? 'checked' : '' %>><span class="switch-track"></span><span class="switch-text"><strong>Show a background image</strong><span class="hint">Displayed behind the app, softened so text stays readable.</span></span></label>
+      <% if (s.background_url) { %>
+        <div class="field"><span class="label">Current image</span><img src="<%= s.background_url %>" alt="" style="max-height:120px;border-radius:var(--radius-sm);border:1px solid var(--border)"></div>
+      <% } %>
+      <div class="form-grid">
+        <div class="field"><label class="label" for="bg-file">Upload an image</label><input class="input" id="bg-file" name="background" type="file" accept="image/*"></div>
+        <div class="field"><label class="label" for="bg-url">…or use an image URL</label><input class="input" id="bg-url" name="background_url" value="<%= s.background_url.startsWith('/uploads/') ? '' : s.background_url %>" placeholder="https://…"></div>
+      </div>
+      <div class="field">
+        <label class="label" for="bg-dim">Soften image <span class="faint" data-range-out="bg-dim"><%= Math.round(s.background_dim * 100) %>%</span></label>
+        <input type="range" id="bg-dim" name="background_dim" min="0" max="0.95" step="0.05" value="<%= s.background_dim %>" data-range-percent>
+      </div>
+      <label class="switch"><input type="checkbox" name="background_in_editor" <%= s.background_in_editor ? 'checked' : '' %>><span class="switch-track"></span><span class="switch-text"><strong>Also show it in the editor</strong><span class="hint">Off keeps the writing view plain and distraction-free.</span></span></label>
+    </div>
+    <div class="card-footer"><button class="btn btn-primary" type="submit">Save appearance</button></div>
+  </form>
+<% } %>
+
+<% if (tab === 'writing') { %>
+  <form class="card" data-settings-form action="/settings/writing">
+    <div class="card-header"><h2>Editor</h2></div>
+    <div class="card-body">
+      <div class="field">
+        <span class="label">Font</span>
+        <div class="choice-grid">
+          <% Object.entries(fonts).forEach(([k, f]) => { %>
+            <label class="choice"><input type="radio" name="editor_font" value="<%= k %>" <%= s.editor_font === k ? 'checked' : '' %>><span style="font-family:<%= f.stack %>"><%= f.label %></span></label>
+          <% }) %>
+        </div>
+      </div>
+      <div class="form-grid">
+        <div class="field"><label class="label" for="ed-size">Text size <span class="faint" data-range-out="ed-size"><%= s.editor_size %></span></label><input type="range" id="ed-size" name="editor_size" min="12" max="32" value="<%= s.editor_size %>" data-range></div>
+        <div class="field"><label class="label" for="ed-width">Line length <span class="faint" data-range-out="ed-width"><%= s.editor_width %></span></label><input type="range" id="ed-width" name="editor_width" min="28" max="80" value="<%= s.editor_width %>" data-range></div>
+        <div class="field"><label class="label" for="ed-lh">Line spacing <span class="faint" data-range-out="ed-lh"><%= s.editor_line_height %></span></label><input type="range" id="ed-lh" name="editor_line_height" min="1.2" max="2.4" step="0.05" value="<%= s.editor_line_height %>" data-range></div>
+      </div>
+      <label class="switch"><input type="checkbox" name="editor_spellcheck" <%= s.editor_spellcheck ? 'checked' : '' %>><span class="switch-track"></span><span class="switch-text"><strong>Spell checking</strong><span class="hint">Uses your browser's spell checker.</span></span></label>
+      <label class="switch"><input type="checkbox" name="editor_typewriter" <%= s.editor_typewriter ? 'checked' : '' %>><span class="switch-track"></span><span class="switch-text"><strong>Typewriter scrolling</strong><span class="hint">Keeps the line you're writing in the middle of the screen.</span></span></label>
+    </div>
+    <div class="card-header" style="border-top:1px solid var(--border)"><h2>Goals</h2></div>
+    <div class="card-body">
+      <div class="field" style="max-width:260px">
+        <label class="label" for="goal">Daily word goal</label>
+        <input class="input" id="goal" name="daily_goal" type="number" min="0" max="100000" step="50" value="<%= s.daily_goal %>">
+        <span class="hint">0 turns the goal off. Progress shows in the editor and statistics.</span>
+      </div>
+    </div>
+    <div class="card-footer"><button class="btn btn-primary" type="submit">Save</button></div>
+  </form>
+<% } %>
+
+<% if (tab === 'litewriter') { %>
+  <form class="card" data-settings-form action="/settings/litewriter" data-litewriter-form>
+    <div class="card-header"><h2>LiteWriter connection</h2><% if (s.litewriter_enabled && s.litewriter_url) { %><span class="badge badge-success"><span class="dot"></span>Enabled</span><% } %></div>
+    <div class="card-body">
+      <p class="muted">WebWriter can open and edit the novels stored in the <strong>LiteWriter</strong> Android app. In the app, start the WebDAV server and enter the address it shows below. Your phone and this server need to reach each other — the same Wi-Fi works, <a href="https://tailscale.com" target="_blank" rel="noopener">Tailscale</a> works from anywhere.</p>
+      <label class="switch"><input type="checkbox" name="enabled" <%= s.litewriter_enabled ? 'checked' : '' %>><span class="switch-track"></span><span class="switch-text"><strong>Show my LiteWriter novels</strong></span></label>
+      <div class="field">
+        <label class="label" for="lw-url">WebDAV address</label>
+        <input class="input" id="lw-url" name="url" value="<%= s.litewriter_url %>" placeholder="http://192.168.1.50:8080" autocomplete="off" inputmode="url">
+      </div>
+      <div class="form-grid">
+        <div class="field"><label class="label" for="lw-user">Username <span class="faint">(if set in the app)</span></label><input class="input" id="lw-user" name="username" value="<%= s.litewriter_username %>" autocomplete="off"></div>
+        <div class="field">
+          <label class="label" for="lw-pass">Password</label>
+          <input class="input" id="lw-pass" name="password" type="password" autocomplete="new-password" placeholder="<%= hasLitewriterPassword ? '•••••••• (unchanged)' : '' %>">
+          <% if (hasLitewriterPassword) { %><label class="row small muted" style="margin-top:.35rem"><input type="checkbox" name="clearPassword"> Remove saved password</label><% } %>
+        </div>
+      </div>
+      <div data-test-result></div>
+    </div>
+    <div class="card-footer">
+      <button class="btn" type="button" data-test-connection><svg class="icon"><use href="#i-link"/></svg>Test connection</button>
+      <button class="btn btn-primary" type="submit">Save</button>
+    </div>
+  </form>
+  <section class="card">
+    <div class="card-body">
+      <h3 style="margin-bottom:.5rem">How it works</h3>
+      <ul class="muted" style="margin:0;padding-left:1.2rem">
+        <li>Every folder in LiteWriter's storage is shown as a novel. Text files in the folder are the main chapters, sub-folders become books.</li>
+        <li>Edits are saved straight to the phone. If a chapter was changed on the phone meanwhile, you'll be asked which version to keep.</li>
+        <li>The library never waits for your phone: LiteWriter novels load in the background, and word counts are cached so only changed files are downloaded.</li>
+        <li>Use “Copy to my library” on a novel to keep an independent copy on this server, or enable LiteWriter snapshots in Backups.</li>
       </ul>
     </div>
-  </nav>
-  <% } %>
-  
-  <div class="container">
-    <h1 class="mb-4">Settings</h1>
-    
-    <div class="card mb-4">
-      <h3 class="mb-3">Appearance</h3>
-      <div class="form-group">
-        <label for="defaultTheme" class="form-label">Default Theme</label>
-        <select id="defaultTheme" class="form-select">
-          <option value="dark" <%= settings.theme === 'dark' ? 'selected' : '' %>>Dark Mode</option>
-          <option value="light" <%= settings.theme === 'light' ? 'selected' : '' %>>Light Mode</option>
-        </select>
-      </div>
-    </div>
-    
-    <div class="card mb-4">
-      <h3 class="mb-3">Background Settings</h3>
-      <div class="form-group">
-        <label style="display: flex; align-items: center; cursor: pointer;">
-          <input type="checkbox" id="backgroundEnabled" class="form-checkbox" <%= settings.background_enabled ? 'checked' : '' %>>
-          <span>Enable Background Image</span>
-        </label>
-      </div>
-      
-      <div id="backgroundSettings" style="display: <%= settings.background_enabled ? 'block' : 'none' %>;">
-        <div class="form-group">
-          <label for="backgroundUrl" class="form-label">Background Image URL</label>
-          <input type="text" id="backgroundUrl" class="form-input" value="<%= settings.background_url || '' %>" placeholder="https://example.com/image.jpg or leave empty to upload">
-          <small style="color: var(--text-secondary); display: block; margin-top: 0.5rem;">
-            Enter a URL to an image, or upload a file below
-          </small>
-        </div>
-        
-        <div class="form-group">
-          <label for="backgroundFile" class="form-label">Or Upload Background Image</label>
-          <input type="file" id="backgroundFile" class="form-input" accept="image/*">
-          <% if (settings.background_url) { %>
-            <div style="margin-top: 1rem;">
-              <small style="color: var(--text-secondary);">Current: </small>
-              <img src="<%= settings.background_url %>" style="max-width: 200px; max-height: 100px; border-radius: 4px; margin-top: 0.5rem;" alt="Current background">
-            </div>
-          <% } %>
-        </div>
-        
-        <div class="form-group">
-          <label for="backgroundOpacity" class="form-label">Background Opacity: <span id="opacityValue"><%= settings.background_opacity || 0.3 %></span></label>
-          <input type="range" id="backgroundOpacity" class="form-range" min="0" max="1" step="0.05" value="<%= settings.background_opacity || 0.3 %>" style="width: 100%;">
-          <div style="display: flex; justify-content: space-between; margin-top: 0.5rem;">
-            <small style="color: var(--text-secondary);">Transparent</small>
-            <small style="color: var(--text-secondary);">Opaque</small>
-          </div>
-        </div>
-        
-        <div class="form-group">
-          <label style="display: flex; align-items: center; cursor: pointer;">
-            <input type="checkbox" id="backgroundEditorEnabled" class="form-checkbox" <%= settings.background_editor_enabled ? 'checked' : '' %>>
-            <span>Show Background in Editor</span>
-          </label>
-          <small style="color: var(--text-secondary); display: block; margin-top: 0.5rem;">
-            When disabled, the editor will have a plain background for distraction-free writing
-          </small>
-        </div>
-        
-        <button type="button" class="btn btn-primary" id="saveBackgroundBtn">Save Background Settings</button>
-      </div>
-    </div>
-    
-    <div class="card mb-4">
-      <h3 class="mb-3">Lite Writer Integration</h3>
-      <div class="form-group">
-        <label style="display: flex; align-items: center; cursor: pointer;">
-          <input type="checkbox" id="litewriterEnabled" class="form-checkbox" <%= settings.litewriter_enabled ? 'checked' : '' %>>
-          <span>Enable Lite Writer Remote Novels (WebDAV)</span>
-        </label>
-      </div>
-      
-      <div id="litewriterSettings" style="display: <%= settings.litewriter_enabled ? 'block' : 'none' %>;">
-        <div class="form-group">
-          <label for="litewriterUrl" class="form-label">Lite Writer WebDAV URL</label>
-          <input type="text" id="litewriterUrl" class="form-input" value="<%= settings.litewriter_url || '' %>" placeholder="http://192.168.1.100:8080">
-          <small style="color: var(--text-secondary); display: block; margin-top: 0.5rem;">
-            Enter the WebDAV URL of your Lite Writer instance (e.g., http://192.168.1.100:8080)
-          </small>
-        </div>
-        
-        <div class="form-group">
-          <label for="litewriterUsername" class="form-label">Username (Optional)</label>
-          <input type="text" id="litewriterUsername" class="form-input" value="<%= settings.litewriter_username || '' %>" placeholder="username">
-          <small style="color: var(--text-secondary); display: block; margin-top: 0.5rem;">
-            Leave empty if no authentication is required
-          </small>
-        </div>
-        
-        <div class="form-group">
-          <label for="litewriterPassword" class="form-label">Password (Optional)</label>
-          <input type="password" id="litewriterPassword" class="form-input" value="<%= settings.litewriter_password || '' %>" placeholder="password">
-        </div>
-        
-        <div class="flex gap-2">
-          <button type="button" class="btn btn-primary" id="saveLiteWriterBtn">Save Settings</button>
-          <button type="button" class="btn btn-secondary" id="testLiteWriterBtn">Test Connection</button>
-        </div>
-      </div>
-    </div>
-    
-    <div class="card mb-4">
-      <h3 class="mb-3">Account</h3>
-      <p style="color: var(--text-secondary);">Username: <strong><%= user.username %></strong></p>
-      <button type="button" class="btn btn-secondary mt-2" id="changePasswordBtn">Change Password</button>
-    </div>
-    
-    <div class="card">
-      <h3 class="mb-3">About WebWriter</h3>
-      <p style="color: var(--text-secondary);">Version 1.0.0</p>
-      <p style="color: var(--text-secondary); margin-top: 1rem;">A minimalistic, self-hosted novel writing application built with Node.js.</p>
+  </section>
+<% } %>
+
     </div>
   </div>
-  
-  <!-- Change Password Modal -->
-  <div id="changePasswordModal" class="modal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2 class="modal-title">Change Password</h2>
-        <button type="button" class="modal-close" id="closeChangePasswordBtn">&times;</button>
-      </div>
-      
-      <form id="changePasswordForm">
-        <div class="form-group">
-          <label for="currentPassword" class="form-label">Current Password</label>
-          <input type="password" id="currentPassword" name="currentPassword" class="form-input" required>
-        </div>
-        
-        <div class="form-group">
-          <label for="newPassword" class="form-label">New Password</label>
-          <input type="password" id="newPassword" name="newPassword" class="form-input" required minlength="4">
-        </div>
-        
-        <div class="form-group">
-          <label for="confirmPassword" class="form-label">Confirm New Password</label>
-          <input type="password" id="confirmPassword" name="confirmPassword" class="form-input" required minlength="4">
-        </div>
-        
-        <div class="flex gap-2">
-          <button type="submit" class="btn btn-primary">Change Password</button>
-          <button type="button" class="btn btn-secondary" id="cancelChangePasswordBtn">Cancel</button>
-        </div>
-      </form>
-    </div>
-  </div>
-  
-  <script src="/js/main.js"></script>
-  <script>
-    document.addEventListener('DOMContentLoaded', function() {
-      
-      // Background settings toggle
-      var backgroundEnabled = document.getElementById('backgroundEnabled');
-      var backgroundSettings = document.getElementById('backgroundSettings');
-      
-      if (backgroundEnabled) {
-        backgroundEnabled.addEventListener('change', function() {
-          backgroundSettings.style.display = this.checked ? 'block' : 'none';
-        });
-      }
-      
-      // Opacity slider
-      var backgroundOpacity = document.getElementById('backgroundOpacity');
-      var opacityValue = document.getElementById('opacityValue');
-      
-      if (backgroundOpacity && opacityValue) {
-        backgroundOpacity.addEventListener('input', function() {
-          opacityValue.textContent = this.value;
-        });
-      }
-      
-      // Save background settings
-      var saveBackgroundBtn = document.getElementById('saveBackgroundBtn');
-      if (saveBackgroundBtn) {
-        saveBackgroundBtn.addEventListener('click', function() {
-          var enabled = document.getElementById('backgroundEnabled').checked;
-          var url = document.getElementById('backgroundUrl').value.trim();
-          var opacity = document.getElementById('backgroundOpacity').value;
-          var editorEnabled = document.getElementById('backgroundEditorEnabled').checked;
-          var fileInput = document.getElementById('backgroundFile');
-          
-          var formData = new FormData();
-          formData.append('enabled', enabled);
-          formData.append('opacity', opacity);
-          formData.append('editorEnabled', editorEnabled);
-          formData.append('url', url);
-          
-          if (fileInput.files.length > 0) {
-            formData.append('background', fileInput.files[0]);
-          }
-          
-          fetch('/settings/background', {
-            method: 'POST',
-            body: formData
-          })
-          .then(function(response) {
-            return response.json();
-          })
-          .then(function(data) {
-            if (data.success) {
-              window.showNotification('Background settings saved successfully');
-              setTimeout(function() {
-                location.reload();
-              }, 1000);
-            } else {
-              window.showNotification('Failed to save background settings', 'error');
-            }
-          })
-          .catch(function(err) {
-            console.error('Error saving background settings:', err);
-            window.showNotification('Failed to save background settings', 'error');
-          });
-        });
-      }
-      
-      var litewriterEnabled = document.getElementById('litewriterEnabled');
-      var litewriterSettings = document.getElementById('litewriterSettings');
-      
-      if (litewriterEnabled) {
-        litewriterEnabled.addEventListener('change', function() {
-          litewriterSettings.style.display = this.checked ? 'block' : 'none';
-        });
-      }
-      
-      var testLiteWriterBtn = document.getElementById('testLiteWriterBtn');
-      if (testLiteWriterBtn) {
-        testLiteWriterBtn.addEventListener('click', function() {
-          this.disabled = true;
-          this.textContent = 'Testing...';
-          
-          fetch('/litewriter/test-connection')
-            .then(function(response) {
-              return response.json();
-            })
-            .then(function(data) {
-              if (data.success) {
-                window.showNotification('Connection successful! Found ' + data.directoriesFound + ' directories.');
-              } else {
-                window.showNotification('Connection failed: ' + data.error, 'error');
-              }
-              testLiteWriterBtn.disabled = false;
-              testLiteWriterBtn.textContent = 'Test Connection';
-            })
-            .catch(function(err) {
-              console.error('Error testing connection:', err);
-              window.showNotification('Connection test failed', 'error');
-              testLiteWriterBtn.disabled = false;
-              testLiteWriterBtn.textContent = 'Test Connection';
-            });
-        });
-      }
-      
-      var saveLiteWriterBtn = document.getElementById('saveLiteWriterBtn');
-      if (saveLiteWriterBtn) {
-        saveLiteWriterBtn.addEventListener('click', function() {
-          var enabled = document.getElementById('litewriterEnabled').checked;
-          var url = document.getElementById('litewriterUrl').value.trim();
-          var username = document.getElementById('litewriterUsername').value.trim();
-          var password = document.getElementById('litewriterPassword').value;
-          
-          if (enabled && !url) {
-            window.showNotification('Please enter a Lite Writer URL', 'error');
-            return;
-          }
-          
-          fetch('/settings/litewriter', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              enabled: enabled,
-              url: url,
-              username: username,
-              password: password
-            })
-          })
-          .then(function(response) {
-            return response.json();
-          })
-          .then(function(data) {
-            if (data.success) {
-              window.showNotification('Lite Writer settings saved successfully');
-            } else {
-              window.showNotification('Failed to save Lite Writer settings', 'error');
-            }
-          })
-          .catch(function(err) {
-            console.error('Error saving Lite Writer settings:', err);
-            window.showNotification('Failed to save Lite Writer settings', 'error');
-          });
-        });
-      }
-      
-      var changePasswordBtn = document.getElementById('changePasswordBtn');
-      var changePasswordModal = document.getElementById('changePasswordModal');
-      var closeChangePasswordBtn = document.getElementById('closeChangePasswordBtn');
-      var cancelChangePasswordBtn = document.getElementById('cancelChangePasswordBtn');
-      
-      if (changePasswordBtn) {
-        changePasswordBtn.addEventListener('click', function() {
-          changePasswordModal.classList.add('active');
-        });
-      }
-      
-      if (closeChangePasswordBtn) {
-        closeChangePasswordBtn.addEventListener('click', function() {
-          changePasswordModal.classList.remove('active');
-        });
-      }
-      
-      if (cancelChangePasswordBtn) {
-        cancelChangePasswordBtn.addEventListener('click', function() {
-          changePasswordModal.classList.remove('active');
-        });
-      }
-      
-      var defaultThemeSelect = document.getElementById('defaultTheme');
-      if (defaultThemeSelect) {
-        defaultThemeSelect.addEventListener('change', function(e) {
-          fetch('/settings/theme', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ theme: e.target.value })
-          })
-          .then(function(response) {
-            return response.json();
-          })
-          .then(function(data) {
-            if (data.success) {
-              window.showNotification('Theme preference saved');
-              document.documentElement.setAttribute('data-theme', e.target.value);
-              localStorage.setItem('theme', e.target.value);
-            } else {
-              window.showNotification('Failed to save theme preference', 'error');
-            }
-          })
-          .catch(function(err) {
-            console.error('Error saving theme:', err);
-            window.showNotification('Failed to save theme preference', 'error');
-          });
-        });
-      }
-
-      var changePasswordForm = document.getElementById('changePasswordForm');
-      if (changePasswordForm) {
-        changePasswordForm.addEventListener('submit', function(e) {
-          e.preventDefault();
-          
-          var currentPassword = document.getElementById('currentPassword').value;
-          var newPassword = document.getElementById('newPassword').value;
-          var confirmPassword = document.getElementById('confirmPassword').value;
-          
-          if (newPassword !== confirmPassword) {
-            window.showNotification('Passwords do not match', 'error');
-            return;
-          }
-          
-          if (newPassword.length < 4) {
-            window.showNotification('Password must be at least 4 characters', 'error');
-            return;
-          }
-          
-          fetch('/settings/change-password', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              currentPassword: currentPassword,
-              newPassword: newPassword
-            })
-          })
-          .then(function(response) {
-            return response.json();
-          })
-          .then(function(data) {
-            if (data.success) {
-              window.showNotification('Password changed successfully');
-              changePasswordModal.classList.remove('active');
-              changePasswordForm.reset();
-            } else {
-              window.showNotification(data.error || 'Failed to change password', 'error');
-            }
-          })
-          .catch(function(err) {
-            console.error('Error changing password:', err);
-            window.showNotification('Failed to change password', 'error');
-          });
-        });
-      }
-
-    });
-  </script>
-</body>
-</html>
+</main>
+<%- include('partials/foot', { scripts: ['settings'] }) %>

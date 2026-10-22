@@ -1,287 +1,116 @@
+'use strict';
+
 const express = require('express');
+const fs = require('fs');
+const crypto = require('crypto');
+const multer = require('multer');
+const config = require('../lib/config');
+const { requireUser } = require('../lib/auth');
+const backups = require('../lib/backups');
+const drive = require('../lib/drive');
+const litewriter = require('../lib/litewriter');
+const { settings } = require('../lib/db');
+const { badRequest } = require('../lib/text');
+
 const router = express.Router();
-const fs = require('fs').promises;
-const path = require('path');
-const archiver = require('archiver');
-const extract = require('extract-zip');
-const { requireAuth } = require('../middleware/auth');
-const db = require('../database/db');
-const { google } = require('googleapis');
+router.use(requireUser);
 
-router.use(requireAuth);
+const upload = multer({ dest: config.tmpDir, limits: { fileSize: config.backupUploadLimitBytes, files: 1 } });
 
-const BACKUPS_DIR = path.join(__dirname, '..', 'data', 'backups');
-
-// Ensure backups directory exists
-fs.mkdir(BACKUPS_DIR, { recursive: true }).catch(console.error);
-
-// Get Google OAuth2 client
-function getOAuth2Client() {
-  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
-    throw new Error('Google OAuth credentials not configured');
-  }
-  
-  return new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-    `${process.env.BASE_URL || 'http://localhost:3000'}/backups/google/callback`
-  );
-}
-
-// Render backups page
 router.get('/', async (req, res) => {
+  const s = settings.get(req.user.id);
+  res.render('backups', {
+    title: 'Backups',
+    backups: await backups.list(req.user.id),
+    s,
+    driveAvailable: config.google.enabled,
+    driveConnected: Boolean(s.drive_tokens),
+    remoteConfigured: litewriter.isConfigured(s)
+  });
+});
+
+router.post('/', async (req, res) => {
+  const backup = await backups.create(req.user.id, { kind: 'manual', includeRemote: req.body.includeRemote === true });
+  const note = backup.manifest.remote && backup.manifest.remote.error ? ` (LiteWriter novels skipped: ${backup.manifest.remote.error})` : '';
+  res.status(201).json({ ok: true, name: backup.name, message: `Backup created${note}.` });
+});
+
+router.post('/schedule', (req, res) => {
+  const b = req.body;
+  const schedule = ['off', 'daily', 'weekly'].includes(b.schedule) ? b.schedule : 'off';
+  const keep = Math.min(100, Math.max(1, Number(b.keep) || 10));
+  settings.update(req.user.id, {
+    backup_schedule: schedule,
+    backup_keep: keep,
+    backup_include_remote: b.includeRemote === true,
+    drive_auto_upload: b.driveAutoUpload === true
+  });
+  res.json({ ok: true, message: schedule === 'off' ? 'Automatic backups turned off.' : `Automatic ${schedule} backups are on.` });
+});
+
+router.post('/upload', upload.single('backup'), async (req, res) => {
   try {
-    const files = await fs.readdir(BACKUPS_DIR);
-    const backups = [];
-    
-    for (const file of files) {
-      if (file.endsWith('.zip')) {
-        const stats = await fs.stat(path.join(BACKUPS_DIR, file));
-        backups.push({
-          name: file,
-          size: stats.size,
-          created: stats.mtime
-        });
-      }
-    }
-    
-    // Sort by date, newest first
-    backups.sort((a, b) => b.created - a.created);
-    
-    // Get cloud backup settings
-    const dbSettings = await db.getUserSettings(req.session.user.id);
-    
-    // Map database settings to view model
-    const settings = {
-      schedule: dbSettings.backup_schedule || 'daily',
-      cloudSchedule: dbSettings.cloud_backup_schedule || 'manual',
-      googleDriveConnected: !!dbSettings.google_drive_token
-    };
-    
-    res.render('backups', { 
-      backups,
-      settings,
-      successMessage: req.query.success,
-      errorMessage: req.query.error
-    });
-  } catch (err) {
-    console.error('Error loading backups:', err);
-    res.render('backups', { 
-      backups: [],
-      cloudSettings: {
-        googleDriveEnabled: false,
-        autoBackupEnabled: false,
-        backupSchedule: 'daily'
-      },
-      errorMessage: 'Failed to load backups'
-    });
+    if (!req.file) throw badRequest('Choose a backup file first.');
+    const name = await backups.importUpload(req.user.id, req.file.path, req.file.originalname);
+    res.status(201).json({ ok: true, name, message: 'Backup uploaded. You can restore it from the list.' });
+  } finally {
+    if (req.file) fs.rm(req.file.path, { force: true }, () => {});
   }
 });
 
-// Create backup
-router.post('/create', async (req, res) => {
-  try {
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const backupName = `backup-${timestamp}.zip`;
-    const backupPath = path.join(BACKUPS_DIR, backupName);
-    
-    const output = require('fs').createWriteStream(backupPath);
-    const archive = archiver('zip', { zlib: { level: 9 } });
-    
-    output.on('close', () => {
-      res.json({ success: true, backup: backupName });
-    });
-    
-    archive.on('error', (err) => {
-      throw err;
-    });
-    
-    archive.pipe(output);
-    
-    // Add novels directory
-    const novelsDir = path.join(__dirname, '..', 'data', 'novels');
-    try {
-      await fs.access(novelsDir);
-      archive.directory(novelsDir, 'novels');
-    } catch (err) {
-      console.log('No novels directory to backup');
-    }
-    
-    // Add database
-    const dbPath = path.join(__dirname, '..', 'database', 'users.db');
-    archive.file(dbPath, { name: 'users.db' });
-    
-    await archive.finalize();
-  } catch (err) {
-    console.error('Error creating backup:', err);
-    res.status(500).json({ error: 'Failed to create backup' });
-  }
+router.get('/file/:name', (req, res) => {
+  const file = backups.backupPath(req.user.id, req.params.name);
+  if (!fs.existsSync(file)) return res.status(404).render('error', { title: 'Not found', status: 404, message: 'Backup not found.' });
+  res.download(file, req.params.name);
 });
 
-// Download backup
-router.get('/download/:name', async (req, res) => {
-  try {
-    const backupPath = path.join(BACKUPS_DIR, req.params.name);
-    await fs.access(backupPath);
-    res.download(backupPath);
-  } catch (err) {
-    console.error('Error downloading backup:', err);
-    res.status(404).send('Backup not found');
-  }
+router.delete('/file/:name', async (req, res) => {
+  await backups.remove(req.user.id, req.params.name);
+  res.json({ ok: true });
 });
 
-// Delete backup
-router.post('/delete/:name', async (req, res) => {
-  try {
-    const backupPath = path.join(BACKUPS_DIR, req.params.name);
-    await fs.unlink(backupPath);
-    res.json({ success: true });
-  } catch (err) {
-    console.error('Error deleting backup:', err);
-    res.status(500).json({ error: 'Failed to delete backup' });
-  }
+router.post('/file/:name/restore', async (req, res) => {
+  const mode = req.body.mode === 'replace' ? 'replace' : 'merge';
+  const result = await backups.restore(req.user.id, req.params.name, { mode });
+  res.json({
+    ok: true,
+    message: `Restored ${result.restored} novel${result.restored === 1 ? '' : 's'}. A safety backup of your previous library was saved first.`
+  });
 });
 
-// Restore backup
-router.post('/restore/:name', async (req, res) => {
-  try {
-    const backupPath = path.join(BACKUPS_DIR, req.params.name);
-    const tempDir = path.join(__dirname, '..', 'temp', `restore-${Date.now()}`);
-    
-    await fs.mkdir(tempDir, { recursive: true });
-    await extract(backupPath, { dir: tempDir });
-    
-    // Restore novels
-    const novelsSource = path.join(tempDir, 'novels');
-    const novelsTarget = path.join(__dirname, '..', 'data', 'novels');
-    try {
-      await fs.access(novelsSource);
-      await fs.rm(novelsTarget, { recursive: true, force: true });
-      await fs.rename(novelsSource, novelsTarget);
-    } catch (err) {
-      console.log('No novels to restore');
-    }
-    
-    // Restore database
-    const dbSource = path.join(tempDir, 'users.db');
-    const dbTarget = path.join(__dirname, '..', 'database', 'users.db');
-    try {
-      await fs.access(dbSource);
-      await fs.copyFile(dbSource, dbTarget);
-    } catch (err) {
-      console.log('No database to restore');
-    }
-    
-    // Clean up
-    await fs.rm(tempDir, { recursive: true, force: true });
-    
-    res.json({ success: true });
-  } catch (err) {
-    console.error('Error restoring backup:', err);
-    res.status(500).json({ error: 'Failed to restore backup' });
-  }
+router.post('/file/:name/drive', async (req, res) => {
+  await drive.upload(req.user.id, req.params.name);
+  res.json({ ok: true, message: 'Uploaded to Google Drive.' });
 });
 
-// Google Drive OAuth initiation
-router.get('/google/auth', (req, res) => {
-  try {
-    const oauth2Client = getOAuth2Client();
-    const authUrl = oauth2Client.generateAuthUrl({
-      access_type: 'offline',
-      scope: ['https://www.googleapis.com/auth/drive.file'],
-      prompt: 'consent'
-    });
-    res.redirect(authUrl);
-  } catch (err) {
-    console.error('Error initiating Google auth:', err);
-    res.redirect('/backups?error=' + encodeURIComponent(err.message));
-  }
+/* ------------------------------------------------------------ Google OAuth */
+
+router.get('/google/connect', (req, res) => {
+  const state = crypto.randomBytes(16).toString('hex');
+  req.session.oauthState = state;
+  res.redirect(drive.authUrl(req, state));
 });
 
-// Google Drive OAuth callback
 router.get('/google/callback', async (req, res) => {
-  try {
-    const { code } = req.query;
-    const oauth2Client = getOAuth2Client();
-    const { tokens } = await oauth2Client.getToken(code);
-    
-    // Save tokens to database
-    await db.updateUserSettings(req.session.user.id, {
-      google_drive_token: JSON.stringify(tokens)
-    });
-    
-    res.redirect('/backups?success=' + encodeURIComponent('Google Drive connected successfully'));
-  } catch (err) {
-    console.error('Error in Google callback:', err);
-    res.redirect('/backups?error=' + encodeURIComponent('Failed to connect Google Drive'));
+  const expected = req.session.oauthState;
+  delete req.session.oauthState;
+  if (!expected || req.query.state !== expected || !req.query.code) {
+    req.flash('error', 'Google Drive could not be connected (the request expired). Please try again.');
+    return res.redirect('/backups');
   }
+  try {
+    await drive.finishAuth(req, req.user.id, String(req.query.code));
+    req.flash('success', 'Google Drive connected.');
+  } catch (err) {
+    console.error('[drive] OAuth callback failed:', err.message);
+    req.flash('error', 'Google Drive could not be connected.');
+  }
+  res.redirect('/backups');
 });
 
-// Disconnect Google Drive
-router.post('/google/disconnect', async (req, res) => {
-  try {
-    await db.updateUserSettings(req.session.user.id, {
-      google_drive_token: null,
-      cloud_backup_schedule: 'manual'
-    });
-    res.json({ success: true });
-  } catch (err) {
-    console.error('Error disconnecting Google Drive:', err);
-    res.status(500).json({ error: 'Failed to disconnect' });
-  }
-});
-
-// Update cloud backup schedule
-router.post('/cloud-schedule', async (req, res) => {
-  try {
-    const { schedule } = req.body;
-    
-    await db.updateUserSettings(req.session.user.id, {
-      cloud_backup_schedule: schedule
-    });
-    
-    res.json({ success: true });
-  } catch (err) {
-    console.error('Error updating cloud schedule:', err);
-    res.status(500).json({ error: 'Failed to update schedule' });
-  }
-});
-
-// Upload backup to Google Drive
-router.post('/upload-to-drive/:name', async (req, res) => {
-  try {
-    const settings = await db.getUserSettings(req.session.user.id);
-    if (!settings.google_drive_token) {
-      return res.status(400).json({ error: 'Google Drive not connected' });
-    }
-    
-    const oauth2Client = getOAuth2Client();
-    oauth2Client.setCredentials(JSON.parse(settings.google_drive_token));
-    
-    const drive = google.drive({ version: 'v3', auth: oauth2Client });
-    const backupPath = path.join(BACKUPS_DIR, req.params.name);
-    
-    const fileMetadata = {
-      name: req.params.name,
-      mimeType: 'application/zip'
-    };
-    
-    const media = {
-      mimeType: 'application/zip',
-      body: require('fs').createReadStream(backupPath)
-    };
-    
-    await drive.files.create({
-      resource: fileMetadata,
-      media: media,
-      fields: 'id'
-    });
-    
-    res.json({ success: true });
-  } catch (err) {
-    console.error('Error uploading to Drive:', err);
-    res.status(500).json({ error: 'Failed to upload to Google Drive' });
-  }
+router.post('/google/disconnect', (req, res) => {
+  drive.disconnect(req.user.id);
+  res.json({ ok: true, message: 'Google Drive disconnected.' });
 });
 
 module.exports = router;

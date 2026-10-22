@@ -1,0 +1,79 @@
+<%
+  const max = Math.max(1, dailyGoal || 0, ...summary.series.map(d => d.net));
+  const trend = summary.last7 - summary.prev7;
+  const totalLocal = novels.reduce((s, n) => s + n.words, 0);
+  const totalRemote = remote.reduce((s, r) => s + r.words, 0);
+  const novelMax = Math.max(1, ...novels.map(n => n.words), ...remote.map(r => r.words));
+  const short = d => new Date(d + 'T12:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+%>
+<%- include('partials/head') %>
+<main class="container page">
+  <div class="page-header"><div><h1>Statistics</h1><p>Your writing over the last 30 days. Words are counted whenever you save.</p></div></div>
+
+  <div class="stat-cards">
+    <div class="card stat-card">
+      <div class="value"><%= num(summary.today) %></div>
+      <div class="label"><svg class="icon"><use href="#i-pen"/></svg>words today</div>
+      <% if (dailyGoal) { %>
+        <div class="progress" style="margin-top:.6rem"><span style="width:<%= Math.min(100, Math.round(summary.today / dailyGoal * 100)) %>%"></span></div>
+        <div class="trend muted"><%= summary.today >= dailyGoal ? 'Goal reached 🎉' : `${num(dailyGoal - summary.today)} to go` %></div>
+      <% } %>
+    </div>
+    <div class="card stat-card">
+      <div class="value"><%= num(summary.last7) %></div>
+      <div class="label"><svg class="icon"><use href="#i-calendar"/></svg>last 7 days</div>
+      <% if (summary.prev7 || summary.last7) { %><div class="trend <%= trend >= 0 ? 'up' : 'down' %>"><%= trend >= 0 ? '▲' : '▼' %> <%= num(Math.abs(trend)) %> vs. the week before</div><% } %>
+    </div>
+    <div class="card stat-card">
+      <div class="value"><%= summary.streak %></div>
+      <div class="label"><svg class="icon"><use href="#i-flame"/></svg>day streak</div>
+      <% if (summary.best) { %><div class="trend muted">Best day: <%= num(summary.best.net) %> words</div><% } %>
+    </div>
+    <div class="card stat-card">
+      <div class="value"><%= num(totalLocal + totalRemote) %></div>
+      <div class="label"><svg class="icon"><use href="#i-book"/></svg>words across all novels</div>
+    </div>
+  </div>
+
+  <section class="card">
+    <div class="card-header"><h2>Daily words</h2><% if (dailyGoal) { %><span class="small muted">Dashed line: daily goal (<%= num(dailyGoal) %>)</span><% } %></div>
+    <div class="card-body">
+      <div class="bars" style="position:relative">
+        <% if (dailyGoal) { %><div class="goal-line" style="bottom:<%= dailyGoal / max * 100 %>%"></div><% } %>
+        <% summary.series.forEach((d, i) => { %>
+          <div class="bar<%= d.net ? '' : ' zero' %><%= i === summary.series.length - 1 ? ' today' : '' %>">
+            <div class="bar-fill" style="height:<%= Math.max(1, d.net / max * 100) %>%"></div>
+            <span class="tip"><%= short(d.day) %>: <%= num(d.net) %> words</span>
+          </div>
+        <% }) %>
+      </div>
+      <div class="bar-axis"><span><%= short(summary.series[0].day) %></span><span>Today</span></div>
+    </div>
+  </section>
+
+  <div class="form-grid" style="gap:1.25rem;margin-top:1.25rem;align-items:start">
+    <section class="card" style="margin:0">
+      <div class="card-header"><h2>Novels by length</h2></div>
+      <div class="card-body">
+        <% if (!novels.length && !remote.length) { %><p class="muted">No novels yet.</p><% } %>
+        <% novels.forEach(n => { %>
+          <div class="hbar"><a class="hbar-name" href="/novels/local/<%= encodeURIComponent(n.id) %>"><%= n.title %></a><div class="hbar-track"><div class="hbar-fill" style="width:<%= n.words / novelMax * 100 %>%"></div></div><span class="small muted nowrap"><%= num(n.words) %></span></div>
+        <% }) %>
+        <% remote.forEach(r => { %>
+          <div class="hbar"><a class="hbar-name" href="/novels/remote/<%= encodeURIComponent(r.novel) %>"><svg class="icon faint"><use href="#i-phone"/></svg> <%= r.novel.replace(/_/g, ' ') %></a><div class="hbar-track"><div class="hbar-fill" style="width:<%= r.words / novelMax * 100 %>%;opacity:.6"></div></div><span class="small muted nowrap"><%= num(r.words) %></span></div>
+        <% }) %>
+        <% if (remote.length) { %><p class="hint" style="margin-top:.75rem">LiteWriter counts are from the last time the device was reachable.</p><% } %>
+      </div>
+    </section>
+    <section class="card" style="margin:0">
+      <div class="card-header"><h2>Most worked on (30 days)</h2></div>
+      <div class="card-body">
+        <% if (!summary.byNovel.length) { %><p class="muted">Nothing written in the last 30 days yet. Your progress shows up here as soon as you save.</p><% } %>
+        <% const nmax = Math.max(1, ...summary.byNovel.map(n => n.net)); summary.byNovel.forEach(n => { %>
+          <div class="hbar"><span class="hbar-name"><%= n.title || n.novel_key %></span><div class="hbar-track"><div class="hbar-fill" style="width:<%= n.net / nmax * 100 %>%"></div></div><span class="small muted nowrap">+<%= num(n.net) %></span></div>
+        <% }) %>
+      </div>
+    </section>
+  </div>
+</main>
+<%- include('partials/foot') %>

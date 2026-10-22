@@ -1,0 +1,32 @@
+<%- include('../partials/head', { bare: true }) %>
+<main class="auth">
+  <div class="card auth-card">
+    <div class="card-body">
+      <%- include('../partials/auth-brand') %>
+      <h1>Set up WebWriter</h1>
+      <p class="lead">Create the administrator account. You can invite other writers later.</p>
+      <% if (hasLegacy) { %>
+        <div class="alert alert-warning"><svg class="icon"><use href="#i-folder"/></svg><div>Novels from an older WebWriter installation were found. They will be moved into this account's library.</div></div>
+      <% } %>
+      <form method="post" action="/setup" data-tz-form>
+        <input type="hidden" name="_csrf" value="<%= csrfToken() %>">
+        <input type="hidden" name="tz" value="">
+        <div class="field">
+          <label class="label" for="username">Username</label>
+          <input class="input" id="username" name="username" value="<%= username %>" autocomplete="username" autocapitalize="none" pattern="[a-zA-Z0-9._\-]{3,32}" required autofocus>
+          <span class="hint">3–32 characters: letters, numbers, dots, dashes, underscores.</span>
+        </div>
+        <div class="field">
+          <label class="label" for="password">Password</label>
+          <input class="input" id="password" name="password" type="password" autocomplete="new-password" minlength="8" required>
+        </div>
+        <div class="field">
+          <label class="label" for="confirm">Confirm password</label>
+          <input class="input" id="confirm" name="confirm" type="password" autocomplete="new-password" minlength="8" required>
+        </div>
+        <button class="btn btn-primary btn-lg btn-block" type="submit">Create account</button>
+      </form>
+    </div>
+  </div>
+</main>
+<%- include('../partials/foot') %>

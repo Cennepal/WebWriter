@@ -1,5 +1,10 @@
-node_modules
-public/backgrounds/*
-package-lock.json
-database/sessions.db
-database/users.db
+node_modules/
+.env
+data/
+database/*.db
+database/*.db-*
+public/backgrounds/
+uploads/
+temp/
+*.log
+.DS_Store

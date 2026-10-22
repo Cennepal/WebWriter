@@ -1,0 +1,26 @@
+<%- include('../partials/head', { bare: true }) %>
+<main class="auth">
+  <div class="card auth-card">
+    <div class="card-body">
+      <%- include('../partials/auth-brand') %>
+      <h1>Welcome back</h1>
+      <p class="lead">Sign in to continue writing.</p>
+      <form method="post" action="/login" data-tz-form>
+        <input type="hidden" name="_csrf" value="<%= csrfToken() %>">
+        <input type="hidden" name="next" value="<%= next %>">
+        <input type="hidden" name="tz" value="">
+        <div class="field">
+          <label class="label" for="username">Username</label>
+          <input class="input" id="username" name="username" value="<%= username %>" autocomplete="username" autocapitalize="none" required autofocus>
+        </div>
+        <div class="field">
+          <label class="label" for="password">Password</label>
+          <input class="input" id="password" name="password" type="password" autocomplete="current-password" required>
+        </div>
+        <button class="btn btn-primary btn-lg btn-block" type="submit">Sign in</button>
+      </form>
+      <p class="small muted" style="text-align:center;margin-top:1.25rem">New here? Ask your administrator for an invite link.</p>
+    </div>
+  </div>
+</main>
+<%- include('../partials/foot') %>

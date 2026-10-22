@@ -1,43 +1,61 @@
+<%
+  const _bare = typeof bare !== 'undefined' && bare;
+  const _editor = typeof editor !== 'undefined' && editor;
+  const _bg = prefs.background.enabled && (!_editor || prefs.background.inEditor);
+  const _classes = [typeof bodyClass !== 'undefined' ? bodyClass : '', _bg ? 'has-bg' : ''].join(' ').trim();
+  const navItems = [
+    { href: '/library', label: 'Library', icon: 'book' },
+    { href: '/stats', label: 'Statistics', icon: 'chart' },
+    { href: '/backups', label: 'Backups', icon: 'archive' }
+  ];
+  if (user && user.isAdmin) navItems.push({ href: '/admin/users', label: 'Users', icon: 'users' });
+%>
 <!DOCTYPE html>
-<html lang="en" data-theme="<%= theme %>">
+<html lang="en" data-theme="<%= prefs.theme %>" data-accent="<%= prefs.accent %>">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title><%= typeof title !== 'undefined' ? title : 'WebWriter' %></title>
-  <link rel="stylesheet" href="/css/style.css">
-  <% if (typeof fonts !== 'undefined' && fonts) { %>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@300;400&family=Source+Serif+4:wght@300;400&display=swap" rel="stylesheet">
-  <% } %>
-  
-  <% 
-    const isEditor = typeof isEditorPage !== 'undefined' && isEditorPage;
-    const bgSettings = typeof backgroundSettings !== 'undefined' ? backgroundSettings : { enabled: false, url: '', opacity: 0.3, editorEnabled: false };
-    const shouldShowBg = bgSettings.enabled && bgSettings.url && (!isEditor || bgSettings.editorEnabled);
-  %>
-  
-  <% if (shouldShowBg) { %>
-  <style>
-    body {
-      background-image: url('<%= bgSettings.url %>') !important;
-      background-size: cover !important;
-      background-position: center !important;
-      background-repeat: no-repeat !important;
-      background-attachment: fixed !important;
-    }
-    body::before {
-      content: '';
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-color: var(--bg-primary);
-      opacity: <%= 1 - parseFloat(bgSettings.opacity) %>;
-      pointer-events: none;
-      z-index: -1;
-    }
-  </style>
-  <% } %>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="csrf-token" content="<%= csrfToken() %>">
+  <meta name="color-scheme" content="light dark">
+  <title><%= title ? `${title} · WebWriter` : 'WebWriter' %></title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/app.css?v=<%= appVersion %>">
 </head>
+<body class="<%= _classes %>"<% if (_bg) { %> style="--bg-image: <%= prefs.background.css %>; --bg-dim: <%= prefs.background.dim %>"<% } %>>
+<%- include('icons') %>
+<% if (!_bare && user) { %>
+<header class="nav" id="nav">
+  <div class="container">
+    <button class="icon-btn nav-toggle" type="button" aria-label="Menu" aria-controls="nav-links" data-nav-toggle><svg class="icon"><use href="#i-menu"/></svg></button>
+    <a class="brand" href="/library"><span class="brand-mark"><svg class="icon"><use href="#i-feather"/></svg></span>WebWriter</a>
+    <ul class="nav-links" id="nav-links">
+      <% navItems.forEach(item => { %>
+        <li><a href="<%= item.href %>" <%- path.startsWith(item.href.replace('/users', '')) || (item.href === '/library' && path.startsWith('/novels')) ? 'aria-current="page"' : '' %>><svg class="icon"><use href="#i-<%= item.icon %>"/></svg><%= item.label %></a></li>
+      <% }) %>
+    </ul>
+    <div class="nav-end">
+      <button class="icon-btn" type="button" data-theme-toggle title="Switch theme" aria-label="Switch theme">
+        <svg class="icon" data-theme-icon="light"><use href="#i-sun"/></svg>
+        <svg class="icon" data-theme-icon="dark"><use href="#i-moon"/></svg>
+        <svg class="icon" data-theme-icon="system"><use href="#i-monitor"/></svg>
+      </button>
+      <details class="menu">
+        <summary class="btn btn-ghost btn-sm" aria-label="Account menu"><svg class="icon"><use href="#i-user"/></svg><span class="nowrap"><%= user.username %></span><svg class="icon"><use href="#i-chevron-down"/></svg></summary>
+        <div class="menu-panel">
+          <a class="menu-item" href="/settings/account"><svg class="icon"><use href="#i-settings"/></svg>Settings</a>
+          <a class="menu-item" href="/settings/litewriter"><svg class="icon"><use href="#i-phone"/></svg>LiteWriter</a>
+          <div class="menu-sep"></div>
+          <form method="post" action="/logout">
+            <input type="hidden" name="_csrf" value="<%= csrfToken() %>">
+            <button class="menu-item" type="submit"><svg class="icon"><use href="#i-logout"/></svg>Sign out</button>
+          </form>
+        </div>
+      </details>
+    </div>
+  </div>
+</header>
+<% } %>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<% if (flash.length) { %>
+<script type="application/json" id="flash-data"><%- json(flash) %></script>
+<% } %>
