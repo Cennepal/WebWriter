@@ -56,8 +56,8 @@ test('create a novel with chapters and books', async () => {
   assert.equal((await api(admin, 'post', `/api/novels/local/${novelId}/books/Part%20Two/chapters`).send({ name: 'Chapter 10' })).status, 201);
   assert.equal((await api(admin, 'post', `/api/novels/local/${novelId}/books/Part%20Two/chapters`).send({ name: 'Chapter 2' })).status, 201);
 
-  const bad = await api(admin, 'post', `/api/novels/local/${novelId}/books/Main/chapters`).send({ name: '../escape' });
-  assert.equal(bad.status, 400);
+  const empty = await api(admin, 'post', `/api/novels/local/${novelId}/books/Main/chapters`).send({ name: '   ' });
+  assert.equal(empty.status, 400);
 
   const { body } = await api(admin, 'get', `/api/novels/local/${novelId}`);
   assert.equal(body.novel.title, 'The Long Road');
@@ -224,4 +224,44 @@ test('pages render', async () => {
 test('old 1.x URLs redirect', async () => {
   assert.equal((await admin.get(`/novels/${novelId}`)).headers.location, `/novels/local/${novelId}`);
   assert.equal((await admin.get('/novels/Foo?remote=1')).headers.location, '/novels/remote/Foo');
+});
+
+test('names may contain any character, including : ? * " < > | / \\', async () => {
+  const fs = require('fs');
+  const path = require('path');
+  const base = `/api/novels/local/${novelId}`;
+  const enc = encodeURIComponent;
+  const name = 'Chapter 3: Why? <"A|B"> 1/2 *';
+  const created = await api(admin, 'post', `${base}/books/Main/chapters`).send({ name });
+  assert.equal(created.status, 201);
+  assert.equal(created.body.name, name);
+
+  const url = `/api/chapters/local/${novelId}/Main/${enc(name)}`;
+  const read = await api(admin, 'get', url);
+  assert.equal(read.status, 200);
+  assert.equal((await api(admin, 'put', url).send({ content: 'Questions everywhere.', baseVersion: read.body.version })).status, 200);
+  assert.equal((await admin.get(`/write/local/${novelId}/Main/${enc(name)}`)).status, 200);
+
+  let { body } = await api(admin, 'get', base);
+  assert.ok(body.books[0].chapters.some(c => c.name === name), 'shown with the real characters');
+
+  const renamed = 'Chapter 3: Because!';
+  assert.equal((await api(admin, 'patch', `${base}/books/Main/chapters/${enc(name)}`).send({ name: renamed })).status, 200);
+  assert.equal((await api(admin, 'post', `${base}/books`).send({ name: 'Part 1/2: Ice' })).status, 201);
+  assert.equal((await api(admin, 'patch', `${base}/books/Main/chapters/${enc(renamed)}`).send({ book: 'Part 1/2: Ice' })).status, 200);
+  ({ body } = await api(admin, 'get', base));
+  const book = body.books.find(b => b.name === 'Part 1/2: Ice');
+  assert.deepEqual(book.chapters.map(c => c.name), [renamed]);
+
+  // Path tricks stay inside the book folder.
+  assert.equal((await api(admin, 'post', `${base}/books/Main/chapters`).send({ name: '../../escape' })).status, 201);
+  const libDir = path.join(process.env.DATA_DIR, 'users');
+  const all = [];
+  const walk = d => fs.readdirSync(d, { withFileTypes: true }).forEach(e => (e.isDirectory() ? walk(path.join(d, e.name)) : all.push(path.join(d, e.name))));
+  walk(libDir);
+  assert.ok(all.some(f => f.includes(`${novelId}${path.sep}Main${path.sep}`) && f.endsWith('escape.md')));
+  assert.ok(!all.some(f => path.basename(f) === 'escape.md' && !f.includes(`${path.sep}Main${path.sep}`)));
+
+  const md = await admin.get(`/export/local/${novelId}?format=md`);
+  assert.match(md.text, /## Chapter 3: Because!/);
 });
