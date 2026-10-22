@@ -378,7 +378,7 @@
   });
 
   const FONT_STACKS = {
-    serif: "'Iowan Old Style', 'Charter', 'Palatino Linotype', 'Book Antiqua', Georgia, Cambria, serif",
+    serif: "'Literata', Georgia, Cambria, 'Times New Roman', serif",
     sans: "system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
     mono: "ui-monospace, 'SF Mono', 'Cascadia Code', 'JetBrains Mono', Menlo, Consolas, monospace"
   };

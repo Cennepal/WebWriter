@@ -19,6 +19,7 @@
   <meta name="color-scheme" content="light dark">
   <title><%= title ? `${title} · WebWriter` : 'WebWriter' %></title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="/fonts/literata-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/css/app.css?v=<%= appVersion %>">
 </head>
 <body class="<%= _classes %>"<% if (_bg) { %> style="--bg-image: <%= prefs.background.css %>; --bg-dim: <%= prefs.background.dim %>"<% } %>>
