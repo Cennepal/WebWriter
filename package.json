@@ -1,6 +1,6 @@
 {
   "name": "webwriter",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "A minimal, self-hosted novel writing web app with LiteWriter (WebDAV) integration",
   "main": "server.js",
   "private": true,
