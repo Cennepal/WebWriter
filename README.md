@@ -2,7 +2,7 @@
 
 A calm, self-hosted place to write novels — in your browser, on your own server, with first-class support for the LiteWriter Android app.
 
-<img width="1900" height="905" alt="screen" src="https://github.com/user-attachments/assets/10e4bd8d-2b2b-493e-b374-2ac334045373" />
+<img width="1900" height="909" alt="Screenshot 2026-10-27 095906" src="https://github.com/user-attachments/assets/6f844279-9308-4b70-be09-b598afc9b5b3" />
 
 ## Features
 
